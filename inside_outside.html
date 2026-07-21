@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Inside/Outside</title>
+<style>
+  :root{
+    color-scheme: dark;
+  }
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:#111; color:#eee;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow:hidden;
+    user-select:none;
+  }
+  #gameWrap{
+    position:relative;
+    width:900px; height:600px;
+    margin:20px auto;
+    box-shadow:0 0 0 4px #000, 0 0 30px rgba(0,0,0,.6);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  canvas{ display:block; background:#000; }
+
+  /* HUD */
+  #hud{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 14px;
+    background:linear-gradient(to bottom, rgba(0,0,0,.75), rgba(0,0,0,0));
+    pointer-events:none;
+    font-size:14px;
+  }
+  #roomName{ font-weight:700; font-size:18px; text-shadow:0 2px 4px #000; }
+  #invBar{ display:flex; gap:6px; align-items:center; }
+  .chip{
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.25);
+    border-radius:14px;
+    padding:3px 9px;
+    font-size:13px;
+    display:flex; gap:4px; align-items:center;
+    backdrop-filter: blur(2px);
+  }
+  #creationsChip{
+    background:rgba(255,215,0,.18);
+    border:1px solid rgba(255,215,0,.5);
+  }
+
+  #interactPrompt{
+    position:absolute; bottom:22px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,.75);
+    border:1px solid rgba(255,255,255,.35);
+    padding:8px 16px; border-radius:20px;
+    font-size:14px; letter-spacing:.2px;
+    display:none;
+    box-shadow:0 4px 14px rgba(0,0,0,.5);
+  }
+  #interactPrompt kbd{
+    background:#fff; color:#111; border-radius:4px;
+    padding:1px 7px; margin-right:6px; font-weight:700;
+  }
+
+  #toasts{
+    position:absolute; top:56px; right:14px;
+    display:flex; flex-direction:column; gap:6px; align-items:flex-end;
+    pointer-events:none;
+  }
+  .toast{
+    background:rgba(20,20,25,.92);
+    border:1px solid rgba(255,255,255,.2);
+    padding:8px 12px; border-radius:8px;
+    font-size:13px; max-width:260px;
+    animation: toastIn .25s ease-out, toastOut .4s ease-in 2.6s forwards;
+    box-shadow:0 4px 14px rgba(0,0,0,.5);
+  }
+  @keyframes toastIn{ from{opacity:0; transform:translateY(-8px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes toastOut{ to{opacity:0; transform:translateY(-8px);} }
+
+  /* Overlays / modals */
+  .overlay{
+    position:absolute; inset:0;
+    background:rgba(0,0,0,.68);
+    display:flex; align-items:center; justify-content:center;
+    z-index:20;
+  }
+  .hidden{ display:none !important; }
+  .panel{
+    position:relative;
+    background:#20222b;
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:14px;
+    padding:20px 24px;
+    width:520px; max-width:88%;
+    box-shadow:0 20px 60px rgba(0,0,0,.6);
+  }
+  .panel h2{ margin:0 0 4px; font-size:20px; }
+  .panel .sub{ color:#9aa0ac; font-size:13px; margin-bottom:14px; }
+  .closeBtn{
+    float:right; cursor:pointer; background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.2); color:#eee;
+    border-radius:8px; padding:4px 10px; font-size:13px;
+    pointer-events:auto;
+  }
+  .closeBtn:hover{ background:rgba(255,255,255,.18); }
+
+  /* calendar */
+  #calHeader{ display:flex; align-items:center; justify-content:center; gap:14px; margin:10px 0 14px; }
+  #calHeader button{
+    background:#33384a; border:1px solid rgba(255,255,255,.2); color:#eee;
+    border-radius:8px; padding:4px 10px; cursor:pointer;
+  }
+  #calMonthLabel{ font-weight:700; min-width:150px; text-align:center; }
+  table#calGrid{ width:100%; border-collapse:collapse; }
+  table#calGrid th{ font-size:12px; color:#9aa0ac; padding:4px 0; font-weight:600;}
+  table#calGrid td{
+    text-align:center; padding:0; height:40px; font-size:14px;
+    border-radius:6px;
+  }
+  .calCell{
+    width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    border-radius:6px;
+  }
+  .calCell.today{ background:#ffcf4a; color:#222; font-weight:800; }
+  .calCell.empty{ visibility:hidden; }
+  #calToday{
+    margin-top:12px; font-size:13px; color:#c9cdd6; text-align:center;
+  }
+
+  /* crafting */
+  .craftCols{ display:flex; gap:18px; }
+  .craftCol{ flex:1; min-width:0; }
+  .craftCol h3{ font-size:13px; color:#9aa0ac; margin:0 0 8px; text-transform:uppercase; letter-spacing:.5px;}
+  #treasureList, #creationList{
+    display:flex; flex-wrap:wrap; gap:8px; min-height:60px;
+    max-height:180px; overflow-y:auto; padding-right:2px;
+  }
+  .itemChip{
+    background:#2c3040; border:1px solid rgba(255,255,255,.15);
+    border-radius:10px; padding:8px; text-align:center; width:64px;
+    cursor:pointer; font-size:22px;
+    transition:transform .1s;
+  }
+  .itemChip span{ display:block; font-size:10px; color:#c9cdd6; margin-top:3px; }
+  .itemChip:hover{ transform:translateY(-2px); }
+  .itemChip.selected{ border-color:#ffcf4a; box-shadow:0 0 0 2px #ffcf4a inset; background:#3a3320; }
+  .creationChip{
+    background:#332a12; border:1px solid rgba(255,207,74,.4);
+    border-radius:10px; padding:8px; text-align:center; width:64px; font-size:22px;
+  }
+  .creationChip span{ display:block; font-size:10px; color:#e0c37a; margin-top:3px; }
+  #craftBtn{
+    display:block; margin:16px auto 0; padding:10px 26px;
+    background:#ffcf4a; color:#222; border:none; border-radius:10px;
+    font-weight:800; font-size:15px; cursor:pointer;
+  }
+  #craftBtn:disabled{ background:#555; color:#999; cursor:not-allowed; }
+  #craftResult{
+    margin-top:12px; text-align:center; font-size:14px; min-height:20px; color:#ffe6a3;
+  }
+  #emptyTreasureNote{ color:#83899a; font-size:12px; }
+
+  /* crafting particle burst */
+  #craftBurstLayer{
+    position:absolute; inset:0;
+    overflow:hidden; pointer-events:none;
+    z-index:5;
+  }
+  .uiParticle{
+    position:absolute; left:50%; top:50%;
+    width:6px; height:6px;
+    transform:translate(-50%,-50%);
+    animation: uiBurst .8s ease-out forwards;
+  }
+  @keyframes uiBurst{
+    0%{ transform:translate(-50%,-50%) translate(0,0) scale(1); opacity:1; }
+    100%{ transform:translate(-50%,-50%) translate(var(--dx), var(--dy)) scale(.3); opacity:0; }
+  }
+
+  /* nap */
+  #napOverlay{
+    position:absolute; inset:0;
+    background:#0b0a16;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none;
+    transition:opacity .5s ease;
+    z-index:40;
+  }
+  #napOverlay.show{ opacity:1; }
+  #napText{
+    color:#e7defa; font-size:17px; letter-spacing:.3px;
+    text-shadow:0 2px 6px rgba(0,0,0,.6);
+  }
+
+  /* start screen */
+  #startPanel{ text-align:center; }
+  #startPanel h1{ margin:0 0 6px; font-size:26px; }
+  #startPanel p{ color:#c9cdd6; font-size:14px; line-height:1.5; }
+  #startPanel .keys{ display:flex; justify-content:center; gap:22px; margin:18px 0; }
+  #startPanel .keys div{ font-size:13px; }
+  #startPanel kbd{
+    display:inline-block; background:#fff; color:#111; border-radius:5px;
+    padding:3px 9px; font-weight:700; margin:2px;
+  }
+  #startBtn{
+    padding:10px 28px; background:#7cd67c; border:none; border-radius:10px;
+    font-weight:800; font-size:15px; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div id="gameWrap">
+  <canvas id="game" width="900" height="600"></canvas>
+
+  <div id="hud">
+    <div id="roomName">Outside</div>
+    <div id="invBar">
+      <div class="chip" id="creationsChip">🛠️ Creations: <span id="creationCount">0</span></div>
+    </div>
+  </div>
+
+  <div id="interactPrompt"><kbd>E</kbd><span id="promptText"></span></div>
+
+  <div id="toasts"></div>
+
+  <div id="napOverlay"><div id="napText">You take a quiet, refreshing nap...</div></div>
+
+  <!-- Start screen -->
+  <div class="overlay" id="startOverlay">
+    <div class="panel" id="startPanel">
+      <h1>🏡 Inside/Outside</h1>
+      <p>Explore the yard and dig up buried treasures, then bring them home.
+      Check the kitchen calendar, play with the toys in your bedroom, and use your
+      <b>Restoration Workbench</b> to craft the treasures into skillfully restored creations!</p>
+      <div class="keys">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows<br>Move</div>
+        <div><kbd>E</kbd><br>Interact</div>
+      </div>
+      <button id="startBtn">Start Playing</button>
+    </div>
+  </div>
+
+  <!-- Calendar modal -->
+  <div class="overlay hidden" id="calendarOverlay">
+    <div class="panel">
+      <span class="closeBtn" id="calCloseBtn" style="pointer-events:auto;">Close ✕</span>
+      <h2>📅 Kitchen Calendar</h2>
+      <div class="sub">Mounted on the kitchen wall.</div>
+      <div id="calHeader">
+        <button id="calPrev">◀</button>
+        <div id="calMonthLabel"></div>
+        <button id="calNext">▶</button>
+      </div>
+      <table id="calGrid">
+        <thead>
+          <tr><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th></tr>
+        </thead>
+        <tbody id="calBody"></tbody>
+      </table>
+      <div id="calToday"></div>
+    </div>
+  </div>
+
+  <!-- Crafting modal -->
+  <div class="overlay hidden" id="craftOverlay">
+    <div class="panel" style="width:600px;">
+      <div id="craftBurstLayer"></div>
+      <span class="closeBtn" id="craftCloseBtn" style="pointer-events:auto;">Close ✕</span>
+      <h2>🔨 Restoration Workbench</h2>
+      <div class="sub">Pick two treasures to combine and restore into something new.</div>
+      <div class="craftCols">
+        <div class="craftCol">
+          <h3>Your Treasures</h3>
+          <div id="treasureList"></div>
+        </div>
+        <div class="craftCol">
+          <h3>Your Creations</h3>
+          <div id="creationList"></div>
+        </div>
+      </div>
+      <button id="craftBtn" disabled>Craft!</button>
+      <div id="craftResult"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const CANVAS_W = 900, CANVAS_H = 600, WALL = 24;
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+
+  // ---------- Data ----------
+  const TREASURES = [
+    {id:'coin',  name:'Rusty Coin',   emoji:'🪙'},
+    {id:'gem',   name:'Shiny Gem',    emoji:'💎'},
+    {id:'key',   name:'Old Key',      emoji:'🗝️'},
+    {id:'bone',  name:'Ancient Bone', emoji:'🦴'},
+    {id:'pot',   name:'Cracked Pot',  emoji:'🏺'},
+    {id:'shard', name:'Star Shard',   emoji:'✨'},
+  ];
+  const treasureById = Object.fromEntries(TREASURES.map(t=>[t.id,t]));
+
+  const RECIPES = {
+    'bone+coin':  {name:'Rattling Totem',        emoji:'🪘', flavor:'Coin and bone clatter together into a small totem.'},
+    'bone+gem':   {name:'Crystal Fang',           emoji:'🦷', flavor:'The bone crystallizes into a shimmering fang.'},
+    'bone+key':   {name:'Carved Bone Key',        emoji:'💀', flavor:'The key and bone are carefully joined into a curious keepsake.'},
+    'bone+pot':   {name:'Bone Chalice',           emoji:'🏆', flavor:'An ancient chalice takes shape before your eyes.'},
+    'bone+shard': {name:'Ancient Bone Whistle',   emoji:'🪈', flavor:'The shard is fitted into the bone, carving out a clear, haunting tone.'},
+    'coin+gem':   {name:'Gem-Set Pendant',        emoji:'💠', flavor:'The coin is set with the gem into a finely crafted pendant.'},
+    'coin+key':   {name:'Restored Key Fob',       emoji:'🗝️', flavor:"The coin is fitted to the key's bow in a careful restoration."},
+    'coin+pot':   {name:'Polished Antique Vessel',emoji:'⚱️', flavor:'The coin is shined and the clay is perfectly mended, highlighting their historic beauty.'},
+    'coin+shard': {name:'Comet Coin',             emoji:'🌠', flavor:'The coin streaks with starlight.'},
+    'gem+key':    {name:'Restored Locket',        emoji:'📿', flavor:"The key's fine hinge lets the locket open, revealing the gem inside."},
+    'gem+pot':    {name:'Jeweled Urn',            emoji:'👑', flavor:'The pot cradles the gem like a tiny crown.'},
+    'gem+shard':  {name:'Star-Cut Gem',           emoji:'🌟', flavor:"The gem is carefully cut to match the shard's star shape."},
+    'key+pot':    {name:'Key-Sealed Jar',         emoji:'🫙', flavor:"The key fits the jar's lid perfectly, sealing it once more."},
+    'key+shard':  {name:'Star-Etched Key',        emoji:'🔑', flavor:"The shard's star pattern is carefully etched into the key's blade."},
+    'pot+shard':  {name:'Starlit Urn',            emoji:'🏮', flavor:'The pot is restored to a soft glow, its glaze catching the light like starlight.'},
+  };
+  const TOY_FLAVORS = [
+    'The teddy bear gives a happy little squeak!',
+    'The toy car zooms in a circle!',
+    'The puzzle piece rattles playfully.',
+    'The yoyo spins on its string!',
+    'The ball bounces out of the way!'
+  ];
+
+  // ---------- Scenes ----------
+  const SCENES = {
+    outside: {
+      name: 'Outside',
+      floor: '#6fae3e',
+      wall: '#5b4632',
+      doors: [ {side:'east', yRange:[250,350], target:'kitchen', spawn:{x:70,y:300}} ],
+      decor: [
+        {x:700,y:60,w:120,h:70,color:'#3f7a2b',label:'🌳',labelSize:46,round:16},
+        {x:80,y:440,w:130,h:70,color:'#3f7a2b',label:'🌳',labelSize:46,round:16},
+      ],
+      objects: [
+        digSpot(200,120,'dig1'),
+        digSpot(360,460,'dig2'),
+        digSpot(560,140,'dig3'),
+        digSpot(660,470,'dig4'),
+        digSpot(430,300,'dig5'),
+      ]
+    },
+    kitchen: {
+      name: 'Kitchen',
+      floor: '#e7d3ab',
+      wall: '#8a6a45',
+      doors: [
+        {side:'west', yRange:[250,350], target:'outside', spawn:{x:830,y:300}},
+        {side:'east', yRange:[250,350], target:'bedroom', spawn:{x:70,y:300}},
+      ],
+      decor: [
+        {x:60,y:420,w:150,h:110,color:'#c0c0c8',label:'🧊',labelSize:40,round:10}, // fridge
+        {x:250,y:440,w:170,h:90,color:'#9a9a9a',label:'🍳',labelSize:34,round:10}, // stove
+        {x:460,y:450,w:200,h:80,color:'#b98a52',label:'🍽️',labelSize:30,round:10}, // counter
+      ],
+      objects: [
+        calendarObj(410,26)
+      ]
+    },
+    bedroom: {
+      name: 'Bedroom',
+      floor: '#cfd8e8',
+      wall: '#5a5f73',
+      doors: [
+        {side:'west', yRange:[250,350], target:'kitchen', spawn:{x:830,y:300}},
+      ],
+      decor: [],
+      objects: [
+        bedObj(40,40),
+        toyObj(300,150,'🧸','#ff9f7a','toy1'),
+        toyObj(390,230,'⚽','#7ad4ff','toy2'),
+        toyObj(270,320,'🚗','#ffe27a','toy3'),
+        toyObj(430,360,'🧩','#a6ff7a','toy4'),
+        toyObj(340,440,'🪀','#ff7ac6','toy5'),
+        toolBenchObj(680,380),
+      ]
+    }
+  };
+
+  function digSpot(x,y,id){
+    return {id,type:'dig', x,y, w:56,h:44, interactRadius:60,
+      promptLabel:'Dig for treasure', dug:false, cooldownUntil:0};
+  }
+  function calendarObj(x,y){
+    return {id:'calendar', type:'calendar', x,y, w:80,h:56, interactRadius:70,
+      promptLabel:'View the Calendar'};
+  }
+  function toyObj(x,y,emoji,color,id){
+    return {id, type:'toy', x,y, w:34,h:34, triggerRadius:34, emoji, color,
+      bounceUntil:0, lastTrigger:0};
+  }
+  function toolBenchObj(x,y){
+    return {id:'toolbench', type:'toolbench', x,y, w:160,h:130, interactRadius:95,
+      promptLabel:'Use the Restoration Workbench'};
+  }
+  function bedObj(x,y){
+    return {id:'bed', type:'bed', x,y, w:170,h:110, interactRadius:120,
+      promptLabel:'Take a Nap'};
+  }
+
+  // ---------- Player / state ----------
+  const player = { scene:'outside', x:120, y:300, radius:16, speed:3.2 };
+  const keys = {};
+  let nearbyObject = null;
+  let modalOpen = false;
+  let napping = false;
+  const inventory = []; // array of treasure ids
+  const creations = []; // array of {name, emoji}
+  const particles = []; // array of {x0,y0,vx,vy,g,color,size,spawnTime,life}
+  const DIRT_COLORS = ['#7a5330','#8f6238','#5a3f24','#a97a4a','#6b4423'];
+
+  // ---------- Input ----------
+  window.addEventListener('keydown', (e)=>{
+    const k = e.key.toLowerCase();
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+    if(modalOpen){
+      if(k==='escape') closeAllModals();
+      return;
+    }
+    keys[k]=true;
+    if(k==='e' && !e.repeat) doInteract();
+  });
+  window.addEventListener('keyup', (e)=>{ keys[e.key.toLowerCase()]=false; });
+
+  document.getElementById('startBtn').addEventListener('click', ()=>{
+    document.getElementById('startOverlay').classList.add('hidden');
+    modalOpen = false;
+  });
+  document.getElementById('calCloseBtn').addEventListener('click', closeAllModals);
+  document.getElementById('craftCloseBtn').addEventListener('click', closeAllModals);
+  modalOpen = true; // start screen counts as a modal until dismissed
+
+  function closeAllModals(){
+    document.getElementById('calendarOverlay').classList.add('hidden');
+    document.getElementById('craftOverlay').classList.add('hidden');
+    document.getElementById('startOverlay').classList.add('hidden');
+    modalOpen = false;
+  }
+
+  // ---------- Toasts ----------
+  function showToast(msg){
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = msg;
+    const wrap = document.getElementById('toasts');
+    wrap.appendChild(el);
+    setTimeout(()=>el.remove(), 3100);
+  }
+
+  // ---------- Movement / transitions ----------
+  function switchScene(target, spawn){
+    player.scene = target;
+    player.x = spawn.x;
+    player.y = spawn.y;
+    nearbyObject = null;
+    document.getElementById('roomName').textContent = SCENES[target].name;
+  }
+
+  function updatePlayer(){
+    if(modalOpen) return;
+    let dx=0, dy=0;
+    if(keys['arrowleft']||keys['a']) dx-=1;
+    if(keys['arrowright']||keys['d']) dx+=1;
+    if(keys['arrowup']||keys['w']) dy-=1;
+    if(keys['arrowdown']||keys['s']) dy+=1;
+    if(dx||dy){ const len=Math.hypot(dx,dy); dx/=len; dy/=len; }
+
+    let nx = player.x + dx*player.speed;
+    let ny = player.y + dy*player.speed;
+
+    const scene = SCENES[player.scene];
+    const r = player.radius;
+    let minX = WALL+r, maxX = CANVAS_W-WALL-r;
+    let minY = WALL+r, maxY = CANVAS_H-WALL-r;
+
+    for(const door of scene.doors){
+      const inYRange = ny > door.yRange[0]-r && ny < door.yRange[1]+r;
+      if(door.side==='west' && inYRange) minX = 6;
+      if(door.side==='east' && inYRange) maxX = CANVAS_W-6;
+    }
+
+    nx = Math.min(Math.max(nx,minX), maxX);
+    ny = Math.min(Math.max(ny,minY), maxY);
+    player.x = nx; player.y = ny;
+
+    for(const door of scene.doors){
+      const inYRange = player.y > door.yRange[0] && player.y < door.yRange[1];
+      if(door.side==='west' && inYRange && player.x<=8){ switchScene(door.target, door.spawn); return; }
+      if(door.side==='east' && inYRange && player.x>=CANVAS_W-8){ switchScene(door.target, door.spawn); return; }
+    }
+  }
+
+  function updateInteractables(){
+    const scene = SCENES[player.scene];
+    let found = null, bestDist = Infinity;
+    for(const obj of scene.objects){
+      if(obj.type==='toy'){
+        const cx=obj.x+obj.w/2, cy=obj.y+obj.h/2;
+        const d = Math.hypot(player.x-cx, player.y-cy);
+        if(d < obj.triggerRadius && Date.now()-obj.lastTrigger > 1500){
+          obj.lastTrigger = Date.now();
+          obj.bounceUntil = Date.now()+500;
+          showToast(TOY_FLAVORS[Math.floor(Math.random()*TOY_FLAVORS.length)]);
+        }
+        continue;
+      }
+      if(!obj.interactRadius) continue;
+      if(obj.type==='dig' && obj.dug && Date.now()<obj.cooldownUntil) continue;
+      const cx=obj.x+obj.w/2, cy=obj.y+obj.h/2;
+      const d = Math.hypot(player.x-cx, player.y-cy);
+      if(d < obj.interactRadius && d < bestDist){ found=obj; bestDist=d; }
+    }
+    nearbyObject = found;
+
+    const promptEl = document.getElementById('interactPrompt');
+    if(!modalOpen && nearbyObject){
+      document.getElementById('promptText').textContent = nearbyObject.promptLabel;
+      promptEl.style.display = 'block';
+    } else {
+      promptEl.style.display = 'none';
+    }
+  }
+
+  function doInteract(){
+    if(!nearbyObject) return;
+    if(nearbyObject.type==='dig') handleDig(nearbyObject);
+    else if(nearbyObject.type==='calendar') openCalendar();
+    else if(nearbyObject.type==='toolbench') openCrafting();
+    else if(nearbyObject.type==='bed') takeNap();
+  }
+
+  function handleDig(spot){
+    if(spot.dug && Date.now()<spot.cooldownUntil){
+      showToast('Nothing here yet — try again later.');
+      return;
+    }
+    const t = TREASURES[Math.floor(Math.random()*TREASURES.length)];
+    inventory.push(t.id);
+    spot.dug = true;
+    spot.cooldownUntil = Date.now()+20000;
+    spawnDirtBurst(spot.x+spot.w/2, spot.y+spot.h/2);
+    showToast(`You dug up a ${t.name}! ${t.emoji}`);
+  }
+
+  // ---------- Particles ----------
+  function spawnDirtBurst(x,y){
+    for(let i=0;i<16;i++){
+      particles.push({
+        x0:x, y0:y,
+        vx:(Math.random()-0.5)*160,
+        vy:-(60+Math.random()*100),
+        g:420,
+        color:DIRT_COLORS[Math.floor(Math.random()*DIRT_COLORS.length)],
+        size:3+Math.random()*3,
+        spawnTime:Date.now(),
+        life:400+Math.random()*300,
+      });
+    }
+  }
+  function drawParticles(){
+    const now = Date.now();
+    for(let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      const age = now-p.spawnTime;
+      if(age>p.life){ particles.splice(i,1); continue; }
+      const t = age/1000;
+      const x = p.x0 + p.vx*t;
+      const y = p.y0 + p.vy*t + 0.5*p.g*t*t;
+      ctx.globalAlpha = Math.max(0, 1-age/p.life);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(x-p.size/2, y-p.size/2, p.size, p.size);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ---------- Calendar ----------
+  let calDate = new Date();
+  function openCalendar(){
+    modalOpen = true;
+    calDate = new Date();
+    renderCalendar();
+    document.getElementById('calendarOverlay').classList.remove('hidden');
+  }
+  function renderCalendar(){
+    const today = new Date();
+    const year = calDate.getFullYear(), month = calDate.getMonth();
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    document.getElementById('calMonthLabel').textContent = `${monthNames[month]} ${year}`;
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    const body = document.getElementById('calBody');
+    body.innerHTML = '';
+
+    let day = 1;
+    for(let week=0; week<6 && day<=daysInMonth; week++){
+      const tr = document.createElement('tr');
+      for(let dow=0; dow<7; dow++){
+        const td = document.createElement('td');
+        if((week===0 && dow<firstDay) || day>daysInMonth){
+          td.innerHTML = '<div class="calCell empty"></div>';
+        } else {
+          const isToday = day===today.getDate() && month===today.getMonth() && year===today.getFullYear();
+          const div = document.createElement('div');
+          div.className = 'calCell' + (isToday ? ' today' : '');
+          div.textContent = day;
+          td.appendChild(div);
+          day++;
+        }
+        tr.appendChild(td);
+      }
+      body.appendChild(tr);
+    }
+    document.getElementById('calToday').textContent =
+      `Today is ${today.toLocaleDateString(undefined, {weekday:'long', year:'numeric', month:'long', day:'numeric'})}`;
+  }
+  document.getElementById('calPrev').addEventListener('click', ()=>{
+    calDate = new Date(calDate.getFullYear(), calDate.getMonth()-1, 1);
+    renderCalendar();
+  });
+  document.getElementById('calNext').addEventListener('click', ()=>{
+    calDate = new Date(calDate.getFullYear(), calDate.getMonth()+1, 1);
+    renderCalendar();
+  });
+
+  // ---------- Crafting ----------
+  let selectedIdx = [];
+  function openCrafting(){
+    modalOpen = true;
+    selectedIdx = [];
+    renderCrafting();
+    document.getElementById('craftOverlay').classList.remove('hidden');
+    document.getElementById('craftResult').textContent = '';
+  }
+  function renderCrafting(){
+    const list = document.getElementById('treasureList');
+    list.innerHTML = '';
+    if(inventory.length===0){
+      list.innerHTML = '<div id="emptyTreasureNote">No treasures yet — dig some up outside first!</div>';
+    }
+    inventory.forEach((id, idx)=>{
+      const t = treasureById[id];
+      const chip = document.createElement('div');
+      chip.className = 'itemChip' + (selectedIdx.includes(idx) ? ' selected' : '');
+      chip.innerHTML = `${t.emoji}<span>${t.name}</span>`;
+      chip.addEventListener('click', ()=>{
+        if(selectedIdx.includes(idx)){
+          selectedIdx = selectedIdx.filter(i=>i!==idx);
+        } else if(selectedIdx.length<2){
+          selectedIdx.push(idx);
+        } else {
+          selectedIdx = [idx];
+        }
+        renderCrafting();
+      });
+      list.appendChild(chip);
+    });
+
+    const cList = document.getElementById('creationList');
+    cList.innerHTML = '';
+    if(creations.length===0){
+      cList.innerHTML = '<div id="emptyTreasureNote">Nothing crafted yet.</div>';
+    }
+    creations.forEach(c=>{
+      const chip = document.createElement('div');
+      chip.className = 'creationChip';
+      chip.innerHTML = `${c.emoji}<span>${c.name}</span>`;
+      cList.appendChild(chip);
+    });
+
+    document.getElementById('craftBtn').disabled = selectedIdx.length!==2;
+  }
+  function spawnCraftBurst(){
+    const layer = document.getElementById('craftBurstLayer');
+    const colors = ['#ffd54a','#fff5c8','#c9ced8','#8ff0ff','#ffe0b2'];
+    for(let i=0;i<24;i++){
+      const p = document.createElement('div');
+      p.className = 'uiParticle';
+      const angle = Math.random()*Math.PI*2;
+      const dist = 60+Math.random()*100;
+      p.style.setProperty('--dx', `${Math.cos(angle)*dist}px`);
+      p.style.setProperty('--dy', `${Math.sin(angle)*dist}px`);
+      p.style.background = colors[Math.floor(Math.random()*colors.length)];
+      p.style.animationDelay = `${Math.random()*80}ms`;
+      layer.appendChild(p);
+      setTimeout(()=>p.remove(), 950);
+    }
+  }
+  document.getElementById('craftBtn').addEventListener('click', ()=>{
+    if(selectedIdx.length!==2) return;
+    const [i1,i2] = selectedIdx;
+    const id1 = inventory[i1], id2 = inventory[i2];
+    let result;
+    if(id1===id2){
+      const t = treasureById[id1];
+      result = {name:`Twin ${t.name}`, emoji:t.emoji+t.emoji, flavor:'Two of a kind resonate together!'};
+    } else {
+      const key = [id1,id2].sort().join('+');
+      result = RECIPES[key] || {name:'Mysterious Trinket', emoji:'🧩', flavor:'Your tools hum and clatter... something new emerges!'};
+    }
+    // remove the two used items (higher index first)
+    [i1,i2].sort((a,b)=>b-a).forEach(i=>inventory.splice(i,1));
+    creations.push({name:result.name, emoji:result.emoji});
+    selectedIdx = [];
+    document.getElementById('craftResult').textContent = `${result.emoji} Crafted: ${result.name}! — ${result.flavor}`;
+    document.getElementById('creationCount').textContent = creations.length;
+    spawnCraftBurst();
+    renderCrafting();
+  });
+
+  // ---------- Bed / Nap ----------
+  function takeNap(){
+    modalOpen = true;
+    napping = true;
+    const overlay = document.getElementById('napOverlay');
+    overlay.classList.add('show');
+    setTimeout(()=>{
+      const bed = SCENES.bedroom.objects.find(o=>o.type==='bed');
+      player.scene = 'bedroom';
+      player.x = bed.x + bed.w + 34;
+      player.y = bed.y + bed.h/2;
+    }, 550);
+    setTimeout(()=>{
+      overlay.classList.remove('show');
+    }, 2200);
+    setTimeout(()=>{
+      napping = false;
+      modalOpen = false;
+    }, 2700);
+  }
+
+  // ---------- Rendering ----------
+  function drawRoundedRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function drawScene(){
+    const scene = SCENES[player.scene];
+    ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
+
+    // floor
+    ctx.fillStyle = scene.floor;
+    ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+
+    // walls
+    ctx.strokeStyle = scene.wall;
+    ctx.lineWidth = WALL*2;
+    ctx.strokeRect(0,0,CANVAS_W,CANVAS_H);
+    for(const door of scene.doors){
+      ctx.fillStyle = '#20222b';
+      if(door.side==='west') ctx.fillRect(0, door.yRange[0], WALL+6, door.yRange[1]-door.yRange[0]);
+      if(door.side==='east') ctx.fillRect(CANVAS_W-WALL-6, door.yRange[0], WALL+6, door.yRange[1]-door.yRange[0]);
+    }
+
+    // decor (background flavor, non-interactive)
+    (scene.decor||[]).forEach(d=>{
+      ctx.fillStyle = d.color;
+      drawRoundedRect(d.x,d.y,d.w,d.h,d.round||8);
+      ctx.fill();
+      ctx.font = `${d.labelSize||28}px serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(d.label, d.x+d.w/2, d.y+d.h/2);
+    });
+
+    // objects
+    for(const obj of scene.objects){
+      if(obj.type==='dig') drawDig(obj);
+      else if(obj.type==='calendar') drawCalendarSprite(obj);
+      else if(obj.type==='toy') drawToy(obj);
+      else if(obj.type==='toolbench') drawToolBench(obj);
+      else if(obj.type==='bed') drawBed(obj);
+    }
+
+    drawParticles();
+    drawPlayer();
+  }
+
+  function glowIf(obj, color){
+    if(nearbyObject===obj){
+      ctx.save();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 18 + Math.sin(Date.now()/150)*6;
+    }
+  }
+  function unglow(obj){ if(nearbyObject===obj) ctx.restore(); }
+
+  function drawDig(obj){
+    glowIf(obj,'#ffd54a');
+    const cx=obj.x+obj.w/2, cy=obj.y+obj.h/2;
+    if(obj.dug && Date.now()<obj.cooldownUntil){
+      ctx.fillStyle = '#5a3f24';
+      ctx.beginPath(); ctx.ellipse(cx,cy,obj.w/2,obj.h/2.6,0,0,Math.PI*2); ctx.fill();
+    } else {
+      ctx.fillStyle = '#7a5330';
+      ctx.beginPath(); ctx.ellipse(cx,cy+6,obj.w/2,obj.h/2.6,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#8f6238';
+      ctx.beginPath(); ctx.ellipse(cx,cy,obj.w/2-4,obj.h/2.6-4,0,0,Math.PI*2); ctx.fill();
+      ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('⛏️', cx, cy-2);
+    }
+    unglow(obj);
+  }
+
+  function drawCalendarSprite(obj){
+    glowIf(obj,'#ffcf4a');
+    ctx.fillStyle = '#f5f2ea';
+    drawRoundedRect(obj.x,obj.y,obj.w,obj.h,8);
+    ctx.fill();
+    ctx.strokeStyle='#c0392b'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#c0392b';
+    ctx.fillRect(obj.x, obj.y, obj.w, 12);
+    ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1;
+    for(let i=1;i<4;i++){
+      ctx.beginPath(); ctx.moveTo(obj.x+i*obj.w/4, obj.y+12); ctx.lineTo(obj.x+i*obj.w/4, obj.y+obj.h);
+      ctx.stroke();
+    }
+    ctx.font='22px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#333';
+    ctx.fillText('📅', obj.x+obj.w/2, obj.y+obj.h/2+8);
+    ctx.font='bold 11px sans-serif'; ctx.fillStyle='#f5f2ea';
+    ctx.fillText('CALENDAR', obj.x+obj.w/2, obj.y-8);
+    unglow(obj);
+  }
+
+  function drawToy(obj){
+    const bouncing = Date.now() < obj.bounceUntil;
+    const t = bouncing ? (obj.bounceUntil-Date.now())/500 : 0;
+    const lift = bouncing ? Math.sin(t*Math.PI)*10 : 0;
+    const scale = bouncing ? 1+Math.sin(t*Math.PI)*0.3 : 1;
+    const cx = obj.x+obj.w/2, cy = obj.y+obj.h/2 - lift;
+
+    ctx.beginPath();
+    ctx.ellipse(obj.x+obj.w/2, obj.y+obj.h/2+6, obj.w/2, 6, 0, 0, Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.15)'; ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(cx,cy, (obj.w/2)*scale, 0, Math.PI*2);
+    ctx.fillStyle = obj.color;
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=2; ctx.stroke();
+
+    ctx.font=`${20*scale}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(obj.emoji, cx, cy);
+  }
+
+  function drawToolBench(obj){
+    // distinct zone rug
+    ctx.save();
+    ctx.strokeStyle = '#ff9f3f';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8,6]);
+    drawRoundedRect(obj.x-16, obj.y-16, obj.w+32, obj.h+32, 16);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    glowIf(obj,'#ff9f3f');
+    ctx.fillStyle = '#6b4423';
+    drawRoundedRect(obj.x, obj.y, obj.w, obj.h, 10);
+    ctx.fill();
+    ctx.strokeStyle='#4a2e17'; ctx.lineWidth=3; ctx.stroke();
+
+    ctx.font='30px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🔨', obj.x+obj.w*0.3, obj.y+obj.h*0.4);
+    ctx.fillText('🔧', obj.x+obj.w*0.6, obj.y+obj.h*0.35);
+    ctx.fillText('🪚', obj.x+obj.w*0.45, obj.y+obj.h*0.7);
+
+    ctx.font='bold 12px sans-serif'; ctx.fillStyle='#ffd9a0';
+    ctx.fillText('WORKBENCH', obj.x+obj.w/2, obj.y-22);
+    unglow(obj);
+  }
+
+  function drawBed(obj){
+    glowIf(obj,'#b9a8ff');
+    ctx.fillStyle = '#7d6bb0';
+    drawRoundedRect(obj.x, obj.y, obj.w, obj.h, 14);
+    ctx.fill();
+    ctx.font = '44px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🛏️', obj.x+obj.w/2, obj.y+obj.h/2);
+    unglow(obj);
+  }
+
+  function drawPlayer(){
+    ctx.beginPath();
+    ctx.ellipse(player.x, player.y+player.radius-2, player.radius, player.radius/2.5, 0,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.radius, 0, Math.PI*2);
+    ctx.fillStyle = '#ffe0b2';
+    ctx.fill();
+    ctx.strokeStyle='#c98a3f'; ctx.lineWidth=2; ctx.stroke();
+
+    ctx.font='22px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(napping ? '😴' : '🧒', player.x, player.y+1);
+  }
+
+  // ---------- Loop ----------
+  function loop(){
+    updatePlayer();
+    updateInteractables();
+    drawScene();
+    requestAnimationFrame(loop);
+  }
+  document.getElementById('roomName').textContent = SCENES[player.scene].name;
+  loop();
+})();
+</script>
+</body>
+</html>
