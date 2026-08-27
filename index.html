@@ -102,6 +102,7 @@
     border-radius:14px;
     padding:20px 24px;
     width:520px; max-width:88%;
+    max-height:90%; overflow-y:auto;
     box-shadow:0 20px 60px rgba(0,0,0,.6);
   }
   .panel h2{ margin:0 0 4px; font-size:20px; }
@@ -202,6 +203,35 @@
     text-shadow:0 2px 6px rgba(0,0,0,.6);
   }
 
+  /* mini race — a short, wide track fits a landscape phone without scrolling */
+  #racePanel{ width:440px; text-align:center; }
+  #raceCanvas{
+    display:block; margin:10px auto 0;
+    width:100%; max-width:380px; height:auto;
+    aspect-ratio: 380 / 170;
+    background:#2b2f38; border-radius:10px;
+    border:1px solid rgba(255,255,255,.15);
+    touch-action:none;
+  }
+  #raceResult{
+    margin-top:10px; text-align:center; font-size:14px; min-height:20px; color:#bfe9c8;
+  }
+
+  /* meal */
+  #mealOverlay{
+    position:absolute; inset:0;
+    background:#241a10;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none;
+    transition:opacity .5s ease;
+    z-index:40;
+  }
+  #mealOverlay.show{ opacity:1; }
+  #mealText{
+    color:#ffe3b0; font-size:17px; letter-spacing:.3px;
+    text-shadow:0 2px 6px rgba(0,0,0,.6);
+  }
+
   /* touch controls (mobile) */
   #touchControls{ display:none; }
   body.touch-mode #touchControls{ display:block; }
@@ -254,6 +284,16 @@
     .craftCols{ flex-direction:column; gap:14px; }
   }
 
+  /* Short landscape phones: the start screen's copy is the tallest panel
+     in the game, so trim it first — .panel's own overflow-y:auto is the
+     fallback if it still doesn't fit. */
+  @media (max-height: 420px){
+    #startPanel h1{ font-size:20px; margin-bottom:2px; }
+    #startPanel p{ font-size:12.5px; line-height:1.35; }
+    #startPanel .keys{ margin:10px 0; }
+    #startBtn{ padding:7px 22px; font-size:14px; }
+  }
+
   /* The game keeps its 3:2 landscape shape at any screen size, so a
      portrait phone gets a small, letterboxed view — nudge toward landscape. */
   #rotateHint{ display:none; }
@@ -289,6 +329,8 @@
   </div>
 
   <div id="napOverlay"><div id="napText">You take a quiet, refreshing nap...</div></div>
+
+  <div id="mealOverlay"><div id="mealText">You sit down and enjoy a delicious meal...</div></div>
 
   <!-- Start screen -->
   <div class="overlay" id="startOverlay">
@@ -351,6 +393,17 @@
       <div id="craftResult"></div>
     </div>
   </div>
+
+  <!-- Mini race modal -->
+  <div class="overlay hidden" id="raceOverlay">
+    <div class="panel" id="racePanel">
+      <span class="closeBtn" id="raceCloseBtn" style="pointer-events:auto;">Close ✕</span>
+      <h2>🏎️ Quick Race</h2>
+      <div class="sub">Drag up/down to dodge — reach the finish line!</div>
+      <canvas id="raceCanvas" width="380" height="170"></canvas>
+      <div id="raceResult"></div>
+    </div>
+  </div>
 </div>
 
 <div id="rotateHint">💡 Rotate your phone sideways for a bigger view</div>
@@ -375,19 +428,29 @@
   const RECIPES = {
     'bone+coin':  {name:'Rattling Totem',        emoji:'🪘', flavor:'Coin and bone clatter together into a small totem.'},
     'bone+gem':   {name:'Crystal Fang',           emoji:'🦷', flavor:'The bone crystallizes into a shimmering fang.'},
-    'bone+key':   {name:'Carved Bone Key',        emoji:'💀', flavor:'The key and bone are carefully joined into a curious keepsake.'},
-    'bone+pot':   {name:'Bone Chalice',           emoji:'🏆', flavor:'An ancient chalice takes shape before your eyes.'},
+    'bone+key':   {name:'Rune-Carved Key',        emoji:'🗝️', flavor:'The bone becomes a tool, etching ancient runes down the length of the key.'},
+    'bone+pot':   {name:'Sunken Reliquary',       emoji:'🏺', flavor:'The pot is mended into an ornate reliquary, the bone sealed reverently within.'},
     'bone+shard': {name:'Ancient Bone Whistle',   emoji:'🪈', flavor:'The shard is fitted into the bone, carving out a clear, haunting tone.'},
     'coin+gem':   {name:'Gem-Set Pendant',        emoji:'💠', flavor:'The coin is set with the gem into a finely crafted pendant.'},
-    'coin+key':   {name:'Restored Key Fob',       emoji:'🗝️', flavor:"The coin is fitted to the key's bow in a careful restoration."},
+    'coin+key':   {name:'Golden Cipher Key',      emoji:'🔑', flavor:"The coin's engravings are pressed into the key's bow, forming a secret cipher."},
     'coin+pot':   {name:'Polished Antique Vessel',emoji:'⚱️', flavor:'The coin is shined and the clay is perfectly mended, highlighting their historic beauty.'},
     'coin+shard': {name:'Comet Coin',             emoji:'🌠', flavor:'The coin streaks with starlight.'},
     'gem+key':    {name:'Restored Locket',        emoji:'📿', flavor:"The key's fine hinge lets the locket open, revealing the gem inside."},
     'gem+pot':    {name:'Jeweled Urn',            emoji:'👑', flavor:'The pot cradles the gem like a tiny crown.'},
     'gem+shard':  {name:'Star-Cut Gem',           emoji:'🌟', flavor:"The gem is carefully cut to match the shard's star shape."},
-    'key+pot':    {name:'Key-Sealed Jar',         emoji:'🫙', flavor:"The key fits the jar's lid perfectly, sealing it once more."},
+    'key+pot':    {name:'Locked Treasure Urn',    emoji:'🔐', flavor:"The key fits the urn's lid perfectly, sealing a treasure inside once more."},
     'key+shard':  {name:'Star-Etched Key',        emoji:'🔑', flavor:"The shard's star pattern is carefully etched into the key's blade."},
     'pot+shard':  {name:'Starlit Urn',            emoji:'🏮', flavor:'The pot is restored to a soft glow, its glaze catching the light like starlight.'},
+  };
+  // Combining two of the same treasure — named per-treasure instead of a
+  // generic "Twin X", so it still feels like a distinct, worthwhile prize.
+  const TWIN_RESULTS = {
+    coin:  {name:"Merchant's Fortune", emoji:'💰', flavor:'Two coins fuse into a glinting stack — a small fortune.'},
+    gem:   {name:'Radiant Cluster',    emoji:'💠', flavor:'Two gems grow together into a single dazzling cluster.'},
+    key:   {name:'Skeleton Ring',      emoji:'🔑', flavor:"A matched pair of keys, joined into a jailer's ring."},
+    bone:  {name:'Bone Scepter',       emoji:'🏆', flavor:'Two bones bound together into a small ceremonial scepter.'},
+    pot:   {name:'Nested Urns',        emoji:'🏺', flavor:'One vessel restored and cradled perfectly inside the other.'},
+    shard: {name:'Starburst Cluster',  emoji:'🌠', flavor:'Two shards fused into a burst of frozen starlight.'},
   };
   const TOY_FLAVORS = [
     'The teddy bear gives a happy little squeak!',
@@ -430,7 +493,8 @@
         {x:460,y:450,w:200,h:80,color:'#b98a52',label:'🍽️',labelSize:30,round:10}, // counter
       ],
       objects: [
-        calendarObj(410,26)
+        calendarObj(410,26),
+        tableObj(360,190),
       ]
     },
     bedroom: {
@@ -444,7 +508,7 @@
       objects: [
         bedObj(40,40),
         toyObj(300,150,'🧸','#ff9f7a','toy1'),
-        toyObj(390,230,'⚽','#7ad4ff','toy2'),
+        raceBallObj(390,230),
         toyObj(270,320,'🚗','#ffe27a','toy3'),
         toyObj(430,360,'🧩','#a6ff7a','toy4'),
         toyObj(340,440,'🪀','#ff7ac6','toy5'),
@@ -472,6 +536,14 @@
   function bedObj(x,y){
     return {id:'bed', type:'bed', x,y, w:170,h:110, interactRadius:120,
       promptLabel:'Take a Nap'};
+  }
+  function tableObj(x,y){
+    return {id:'table', type:'table', x,y, w:190,h:90, interactRadius:110,
+      promptLabel:'Sit and Eat'};
+  }
+  function raceBallObj(x,y){
+    return {id:'toy2', type:'raceball', x,y, w:36,h:36, interactRadius:58,
+      promptLabel:'Play a Quick Race'};
   }
 
   // ---------- Player / state ----------
@@ -593,12 +665,15 @@
   });
   document.getElementById('calCloseBtn').addEventListener('click', closeAllModals);
   document.getElementById('craftCloseBtn').addEventListener('click', closeAllModals);
+  document.getElementById('raceCloseBtn').addEventListener('click', closeAllModals);
   modalOpen = true; // start screen counts as a modal until dismissed
 
   function closeAllModals(){
     document.getElementById('calendarOverlay').classList.add('hidden');
     document.getElementById('craftOverlay').classList.add('hidden');
     document.getElementById('startOverlay').classList.add('hidden');
+    document.getElementById('raceOverlay').classList.add('hidden');
+    raceActive = false;
     modalOpen = false;
   }
 
@@ -693,6 +768,8 @@
     else if(nearbyObject.type==='calendar') openCalendar();
     else if(nearbyObject.type==='toolbench') openCrafting();
     else if(nearbyObject.type==='bed') takeNap();
+    else if(nearbyObject.type==='table') takeMeal();
+    else if(nearbyObject.type==='raceball') openRace();
   }
 
   function handleDig(spot){
@@ -858,8 +935,7 @@
     const id1 = inventory[i1], id2 = inventory[i2];
     let result;
     if(id1===id2){
-      const t = treasureById[id1];
-      result = {name:`Twin ${t.name}`, emoji:t.emoji+t.emoji, flavor:'Two of a kind resonate together!'};
+      result = TWIN_RESULTS[id1];
     } else {
       const key = [id1,id2].sort().join('+');
       result = RECIPES[key] || {name:'Mysterious Trinket', emoji:'🧩', flavor:'Your tools hum and clatter... something new emerges!'};
@@ -893,6 +969,139 @@
       napping = false;
       modalOpen = false;
     }, 2700);
+  }
+
+  // ---------- Table / Meal ----------
+  const MEAL_FLAVORS = [
+    'You sit down and enjoy a delicious meal...',
+    'You have a warm, comforting snack...',
+    'You savor every bite at the table...',
+  ];
+  function takeMeal(){
+    modalOpen = true;
+    const overlay = document.getElementById('mealOverlay');
+    document.getElementById('mealText').textContent =
+      MEAL_FLAVORS[Math.floor(Math.random()*MEAL_FLAVORS.length)];
+    overlay.classList.add('show');
+    setTimeout(()=>{ overlay.classList.remove('show'); }, 1300);
+    setTimeout(()=>{
+      modalOpen = false;
+      showToast('Yum! That hit the spot.');
+    }, 1800);
+  }
+
+  // ---------- Mini Race (soccer ball) ----------
+  // Horizontal track (wide, short) so it fits a landscape phone without
+  // scrolling: the car sits near the left edge, obstacles scroll in from
+  // the right, and dragging up/down changes lanes.
+  const RACE_W = 380, RACE_H = 170, RACE_DURATION = 6000; // a very short, ~6s race
+  const RACE_CAR_X = 46;
+  const raceCanvas = document.getElementById('raceCanvas');
+  const raceCtx = raceCanvas.getContext('2d');
+  const raceResultEl = document.getElementById('raceResult');
+  let raceActive = false;
+  let raceCar = { y: RACE_H/2 };
+  let raceObstacles = [];
+  let raceStartTime = 0;
+  let raceFinished = false;
+  let raceCrashed = false;
+  let raceDragging = false;
+
+  function openRace(){
+    modalOpen = true;
+    raceCar.y = RACE_H/2;
+    raceObstacles = [];
+    raceStartTime = Date.now();
+    raceFinished = false;
+    raceCrashed = false;
+    raceResultEl.textContent = '';
+    document.getElementById('raceOverlay').classList.remove('hidden');
+    raceActive = true;
+    requestAnimationFrame(raceLoop);
+  }
+
+  function raceCarYFromEvent(e){
+    const rect = raceCanvas.getBoundingClientRect();
+    const scaleY = RACE_H/rect.height;
+    const y = (e.clientY-rect.top)*scaleY;
+    raceCar.y = Math.max(20, Math.min(RACE_H-20, y));
+  }
+  raceCanvas.addEventListener('pointerdown', (e)=>{
+    raceDragging = true;
+    raceCanvas.setPointerCapture(e.pointerId);
+    raceCarYFromEvent(e);
+  });
+  raceCanvas.addEventListener('pointermove', (e)=>{
+    if(raceDragging) raceCarYFromEvent(e);
+  });
+  raceCanvas.addEventListener('pointerup', ()=>{ raceDragging = false; });
+  raceCanvas.addEventListener('pointercancel', ()=>{ raceDragging = false; });
+
+  function raceLoop(){
+    if(!raceActive) return;
+    const elapsed = Date.now()-raceStartTime;
+    const progress = Math.min(1, elapsed/RACE_DURATION);
+    const racing = !raceFinished && !raceCrashed;
+
+    if(racing && Math.random() < 0.035){
+      raceObstacles.push({y: 30+Math.random()*(RACE_H-60), x: RACE_W+20});
+    }
+    if(racing){
+      for(const o of raceObstacles) o.x -= 4.6;
+    }
+    raceObstacles = raceObstacles.filter(o=>o.x > -30);
+
+    if(racing){
+      for(const o of raceObstacles){
+        if(Math.abs(o.x-RACE_CAR_X) < 20 && Math.abs(o.y-raceCar.y) < 20){
+          raceCrashed = true;
+          raceResultEl.textContent = '💥 Crashed! Tap Close and hop back in to try again.';
+        }
+      }
+    }
+    if(racing && progress>=1){
+      raceFinished = true;
+      raceResultEl.textContent = '🏁 You finished the race!';
+    }
+
+    drawRaceFrame(progress);
+
+    if(!raceFinished && !raceCrashed) requestAnimationFrame(raceLoop);
+    else raceActive = false;
+  }
+
+  function drawRaceFrame(progress){
+    raceCtx.clearRect(0,0,RACE_W,RACE_H);
+    raceCtx.fillStyle = '#2b2f38';
+    raceCtx.fillRect(0,0,RACE_W,RACE_H);
+
+    // scrolling center dashes for a sense of forward motion
+    raceCtx.strokeStyle = 'rgba(255,255,255,.35)';
+    raceCtx.lineWidth = 4;
+    raceCtx.setLineDash([18,14]);
+    raceCtx.lineDashOffset = (Date.now()/8) % 32;
+    raceCtx.beginPath();
+    raceCtx.moveTo(0, RACE_H/2);
+    raceCtx.lineTo(RACE_W, RACE_H/2);
+    raceCtx.stroke();
+    raceCtx.setLineDash([]);
+
+    // progress bar
+    raceCtx.fillStyle = 'rgba(255,255,255,.15)';
+    raceCtx.fillRect(10,10,RACE_W-20,8);
+    raceCtx.fillStyle = '#7cd67c';
+    raceCtx.fillRect(10,10,(RACE_W-20)*progress,8);
+
+    raceCtx.font='22px serif'; raceCtx.textAlign='center'; raceCtx.textBaseline='middle';
+    for(const o of raceObstacles) raceCtx.fillText('🚧', o.x, o.y);
+
+    raceCtx.font='26px serif';
+    raceCtx.fillText(raceCrashed ? '💥' : '🏎️', RACE_CAR_X, raceCar.y);
+
+    if(raceFinished){
+      raceCtx.font='bold 20px sans-serif'; raceCtx.fillStyle='#fff';
+      raceCtx.fillText('🏁 FINISH!', RACE_W/2, RACE_H/2);
+    }
   }
 
   // ---------- Rendering ----------
@@ -941,6 +1150,8 @@
       else if(obj.type==='toy') drawToy(obj);
       else if(obj.type==='toolbench') drawToolBench(obj);
       else if(obj.type==='bed') drawBed(obj);
+      else if(obj.type==='table') drawTable(obj);
+      else if(obj.type==='raceball') drawRaceBall(obj);
     }
 
     drawParticles();
@@ -973,22 +1184,24 @@
     unglow(obj);
   }
 
+  const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+  // A page-a-day calendar: always shows today's real date, no need to open
+  // it just to check — computed fresh every frame so it rolls over on its own.
   function drawCalendarSprite(obj){
     glowIf(obj,'#ffcf4a');
+    const today = new Date();
     ctx.fillStyle = '#f5f2ea';
     drawRoundedRect(obj.x,obj.y,obj.w,obj.h,8);
     ctx.fill();
     ctx.strokeStyle='#c0392b'; ctx.lineWidth=2; ctx.stroke();
     ctx.fillStyle='#c0392b';
-    ctx.fillRect(obj.x, obj.y, obj.w, 12);
-    ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1;
-    for(let i=1;i<4;i++){
-      ctx.beginPath(); ctx.moveTo(obj.x+i*obj.w/4, obj.y+12); ctx.lineTo(obj.x+i*obj.w/4, obj.y+obj.h);
-      ctx.stroke();
-    }
-    ctx.font='22px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillStyle='#333';
-    ctx.fillText('📅', obj.x+obj.w/2, obj.y+obj.h/2+8);
+    ctx.fillRect(obj.x, obj.y, obj.w, 16);
+    ctx.font='bold 10px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#fff';
+    ctx.fillText(MONTH_ABBR[today.getMonth()], obj.x+obj.w/2, obj.y+9);
+    ctx.font='bold 26px sans-serif'; ctx.fillStyle='#333';
+    ctx.fillText(String(today.getDate()), obj.x+obj.w/2, obj.y+16+(obj.h-16)/2+1);
     ctx.font='bold 11px sans-serif'; ctx.fillStyle='#f5f2ea';
     ctx.fillText('CALENDAR', obj.x+obj.w/2, obj.y-8);
     unglow(obj);
@@ -1049,6 +1262,36 @@
     ctx.fill();
     ctx.font = '44px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('🛏️', obj.x+obj.w/2, obj.y+obj.h/2);
+    unglow(obj);
+  }
+
+  function drawTable(obj){
+    glowIf(obj,'#e8b06c');
+    ctx.fillStyle = '#8a5a34';
+    drawRoundedRect(obj.x, obj.y, obj.w, obj.h, 12);
+    ctx.fill();
+    ctx.strokeStyle='#5c3a1e'; ctx.lineWidth=3; ctx.stroke();
+    ctx.font='26px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🍽️', obj.x+obj.w*0.3, obj.y+obj.h*0.5);
+    ctx.fillText('🍽️', obj.x+obj.w*0.7, obj.y+obj.h*0.5);
+    ctx.font='bold 12px sans-serif'; ctx.fillStyle='#ffe3b0';
+    ctx.fillText('TABLE', obj.x+obj.w/2, obj.y-16);
+    unglow(obj);
+  }
+
+  function drawRaceBall(obj){
+    glowIf(obj,'#eee');
+    const cx=obj.x+obj.w/2, cy=obj.y+obj.h/2;
+    ctx.beginPath();
+    ctx.ellipse(cx, obj.y+obj.h+2, obj.w/2, 6, 0, 0, Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.15)'; ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, obj.w/2, 0, Math.PI*2);
+    ctx.fillStyle = '#7ad4ff';
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('⚽', cx, cy);
     unglow(obj);
   }
 
