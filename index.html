@@ -171,6 +171,34 @@
   }
   #emptyTreasureNote{ color:#83899a; font-size:12px; }
 
+  /* pet shop */
+  #shopCoinChip{ display:inline-flex; margin-bottom:12px; background:rgba(255,207,74,.15); border-color:rgba(255,207,74,.4); }
+  #shopCatalog{ max-height:340px; overflow-y:auto; padding-right:4px; }
+  #shopCatalog h3{ font-size:13px; color:#9aa0ac; margin:14px 0 8px; text-transform:uppercase; letter-spacing:.5px; }
+  #shopCatalog h3:first-child{ margin-top:0; }
+  .shopCollectionHeading{ font-size:13px; color:#9aa0ac; margin:16px 0 8px; text-transform:uppercase; letter-spacing:.5px; }
+  .shopGrid{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:4px; }
+  .shopItem{
+    background:#2c3040; border:1px solid rgba(255,255,255,.15);
+    border-radius:10px; padding:8px; text-align:center; width:84px;
+  }
+  .shopItem .shopIcon{ margin:0 auto 4px; image-rendering:pixelated; }
+  .shopItem span{ display:block; font-size:10px; color:#c9cdd6; margin-bottom:6px; min-height:22px; }
+  .shopItem.owned{ border-color:#6fae3e; background:#23331e; }
+  .shopBuyBtn{
+    background:#ffcf4a; color:#222; border:none; border-radius:6px;
+    padding:3px 8px; font-size:11px; font-weight:800; cursor:pointer;
+  }
+  .shopBuyBtn:disabled{ background:#3a4a33; color:#8fbf7a; cursor:default; }
+  #shopCollection{ display:flex; flex-wrap:wrap; gap:8px; min-height:40px; max-height:150px; overflow-y:auto; padding-right:2px; }
+  #shopCollection .shopIcon{ image-rendering:pixelated; }
+  #yardSetup{ display:flex; flex-direction:column; gap:10px; margin-bottom:4px; }
+  #yardSetup label{ display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px; color:#c9cdd6; }
+  #yardSetup select{
+    background:#2c3040; color:#eee; border:1px solid rgba(255,255,255,.2);
+    border-radius:6px; padding:5px 8px; font-size:13px; max-width:230px; flex:1;
+  }
+
   /* crafting particle burst */
   #craftBurstLayer{
     position:absolute; inset:0;
@@ -314,6 +342,8 @@
   <div id="hud">
     <div id="roomName">Outside</div>
     <div id="invBar">
+      <div class="chip" id="coinChip">🪙 Coins: <span id="coinCount">0</span></div>
+      <div class="chip" id="petItemsChip">🐾 Pet Items: <span id="petItemCount">0</span></div>
       <div class="chip" id="creationsChip">🛠️ Creations: <span id="creationCount">0</span></div>
     </div>
   </div>
@@ -394,6 +424,29 @@
     </div>
   </div>
 
+  <!-- Pet Shop modal -->
+  <div class="overlay hidden" id="petShopOverlay">
+    <div class="panel" style="width:640px;">
+      <span class="closeBtn" id="petShopCloseBtn" style="pointer-events:auto;">Close ✕</span>
+      <h2>🐾 Pet Shop</h2>
+      <div class="sub">Spend gold coins you've dug up outside — 1 coin buys any item.</div>
+      <div class="chip" id="shopCoinChip">🪙 Coins: <span id="shopCoinCount">0</span></div>
+      <div id="shopCatalog"></div>
+
+      <h3 class="shopCollectionHeading">Yard Setup</h3>
+      <div class="sub" style="margin-bottom:10px;">Swap in anything you own — the dog eats what's on the food spot and plays (fetch, for balls!) with whatever's on the toy spot.</div>
+      <div id="yardSetup">
+        <label>Food Bowl (kitchen) <select id="equipBowl"></select></label>
+        <label>Doghouse (yard) <select id="equipHouse"></select></label>
+        <label>Food Spot (yard) <select id="equipFood"></select></label>
+        <label>Toy Spot (yard) <select id="equipToy"></select></label>
+      </div>
+
+      <h3 class="shopCollectionHeading">Your Collection</h3>
+      <div id="shopCollection"></div>
+    </div>
+  </div>
+
   <!-- Mini race modal -->
   <div class="overlay hidden" id="raceOverlay">
     <div class="panel" id="racePanel">
@@ -413,6 +466,130 @@
   const CANVAS_W = 900, CANVAS_H = 600, WALL = 24;
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false; // keep the dog's pixel-art sprites crisp
+
+  // ---------- Dog sprites ----------
+  // Each sheet is a strip of 64x64 frames. `loop:false` anims (sit/lie) hold
+  // their last frame instead of cycling, so the pose reads as "settled".
+  const DOG_FRAME = 64;
+  const DOG_ANIMS = {
+    idle:  {src:'assets/dog/GoldenIdle.png',    frames:10, fps:8},
+    walk:  {src:'assets/dog/RunDog.png',        frames:6,  fps:10},
+    sniff: {src:'assets/dog/GoldenSniff.png',   frames:29, fps:14},
+    sit:   {src:'assets/dog/Sitting.png',       frames:8,  fps:10, loop:false},
+    lie:   {src:'assets/dog/LieDown.png',       frames:12, fps:10, loop:false},
+    sleep: {src:'assets/dog/SleepDog.png',      frames:8,  fps:4},
+    bark:  {src:'assets/dog/GoldenBarking.png', frames:11, fps:12, loop:false},
+  };
+  for(const key in DOG_ANIMS){
+    const a = DOG_ANIMS[key];
+    a.img = new Image();
+    a.img.src = a.src;
+  }
+
+  // ---------- Animated tree ----------
+  // A gently swaying 16-frame strip, also 64x64 per frame.
+  const TREE_FRAME = 64;
+  const TREE_ANIM = {src:'assets/trees/AnimatedAutumn.png', frames:16, fps:8};
+  TREE_ANIM.img = new Image();
+  TREE_ANIM.img.src = TREE_ANIM.src;
+  function drawAnimatedTree(d){
+    const frame = Math.floor(Date.now()/1000*TREE_ANIM.fps) % TREE_ANIM.frames;
+    if(TREE_ANIM.img.complete && TREE_ANIM.img.naturalWidth){
+      ctx.drawImage(TREE_ANIM.img, frame*TREE_FRAME, 0, TREE_FRAME, TREE_FRAME, d.x, d.y, d.w, d.h);
+    }
+  }
+
+  // ---------- Pet Shop sprite sheets ----------
+  // Each entry is one PaidDogMaterials sheet; SHOP_ITEMS below crops
+  // individual color variants out of these by pixel rect.
+  const SHOP_SHEETS = {
+    bowls:    {src:'assets/shop/DogFoodBowls.png', w:32,  h:32},
+    water:    {src:'assets/shop/DogWaterBowl.png',  w:32,  h:32},
+    beds:     {src:'assets/shop/DogBeds.png',       w:128, h:128},
+    houses:   {src:'assets/shop/DogHause.png',      w:192, h:192},
+    balls:    {src:'assets/shop/DogBalls.png',       w:120, h:64},
+    food:     {src:'assets/shop/DogFood.png',        w:96,  h:64},
+    chews:    {src:'assets/shop/DogToys3.png',       w:64,  h:32},
+    collars:  {src:'assets/shop/DogToys.png',        w:32,  h:32},
+    rope:     {src:'assets/shop/DogToys2.png',       w:32,  h:32},
+    meat:     {src:'assets/shop/DogMeat.png',        w:32,  h:32},
+    shampoo:  {src:'assets/shop/DogShampoo.png',     w:32,  h:32},
+    vitamins: {src:'assets/shop/DogVitamins.png',    w:32,  h:32},
+    bones:    {src:'assets/shop/Bones.png',          w:32,  h:32},
+  };
+  for(const key in SHOP_SHEETS){
+    const s = SHOP_SHEETS[key];
+    s.img = new Image();
+    s.img.src = s.src;
+  }
+
+  // The full purchasable catalog — one gold coin buys any single item here.
+  // The starter food bowl / doghouse / bone (placed for free below) are the
+  // one variant from each of those sheets that's deliberately left out.
+  const SHOP_ITEMS = [
+    // Food Bowls
+    {id:'bowl_blue',    name:'Blue Food Bowl',    category:'Food Bowls', sheet:'bowls', sx:16,sy:0, sw:16,sh:16},
+    {id:'bowl_purple',  name:'Purple Food Bowl',  category:'Food Bowls', sheet:'bowls', sx:0, sy:16,sw:16,sh:16},
+    {id:'bowl_maroon',  name:'Maroon Food Bowl',  category:'Food Bowls', sheet:'bowls', sx:16,sy:16,sw:16,sh:16},
+    // Water Bowls
+    {id:'water_navy',   name:'Navy Water Bowl',   category:'Water Bowls', sheet:'water', sx:0, sy:0, sw:16,sh:16},
+    {id:'water_tan',    name:'Tan Water Bowl',    category:'Water Bowls', sheet:'water', sx:16,sy:0, sw:16,sh:16},
+    {id:'water_teal',   name:'Teal Water Bowl',   category:'Water Bowls', sheet:'water', sx:0, sy:16,sw:16,sh:16},
+    {id:'water_brown',  name:'Brown Water Bowl',  category:'Water Bowls', sheet:'water', sx:16,sy:16,sw:16,sh:16},
+    // Beds
+    {id:'bed_skyblue',  name:'Sky-Trim Bed',      category:'Beds', sheet:'beds', sx:0, sy:0,  sw:64,sh:32},
+    {id:'bed_forest',   name:'Forest-Trim Bed',   category:'Beds', sheet:'beds', sx:64,sy:0,  sw:64,sh:32},
+    {id:'bed_plum',     name:'Plum-Trim Bed',     category:'Beds', sheet:'beds', sx:0, sy:32, sw:64,sh:32},
+    {id:'bed_teal',     name:'Teal-Trim Bed',     category:'Beds', sheet:'beds', sx:64,sy:32, sw:64,sh:32},
+    {id:'bed_maroon',   name:'Maroon-Trim Bed',   category:'Beds', sheet:'beds', sx:0, sy:64, sw:64,sh:32},
+    {id:'bed_amber',    name:'Amber-Trim Bed',    category:'Beds', sheet:'beds', sx:64,sy:64, sw:64,sh:32},
+    {id:'bed_charcoal', name:'Charcoal-Trim Bed', category:'Beds', sheet:'beds', sx:0, sy:96, sw:64,sh:32},
+    {id:'bed_olive',    name:'Olive-Trim Bed',    category:'Beds', sheet:'beds', sx:64,sy:96, sw:64,sh:32},
+    // Doghouses
+    {id:'house_purple', name:'Purple Doghouse',   category:'Doghouses', sheet:'houses', sx:96,sy:0, sw:96,sh:96},
+    {id:'house_pink',   name:'Pink Doghouse',     category:'Doghouses', sheet:'houses', sx:0, sy:96,sw:96,sh:96},
+    {id:'house_slate',  name:'Slate Doghouse',    category:'Doghouses', sheet:'houses', sx:96,sy:96,sw:96,sh:96},
+    // Balls
+    {id:'ball_blue',    name:'Blue Ball',   category:'Balls', sheet:'balls', sx:0,sy:0,  sw:24,sh:16},
+    {id:'ball_gold',    name:'Gold Ball',   category:'Balls', sheet:'balls', sx:0,sy:16, sw:24,sh:16},
+    {id:'ball_pink',    name:'Pink Ball',   category:'Balls', sheet:'balls', sx:0,sy:32, sw:24,sh:16},
+    {id:'ball_green',   name:'Green Ball',  category:'Balls', sheet:'balls', sx:0,sy:48, sw:24,sh:16},
+    // Dog Food
+    {id:'food_small',   name:'Small Dog Food',  category:'Dog Food', sheet:'food', sx:0, sy:0,sw:32,sh:64},
+    {id:'food_medium',  name:'Medium Dog Food', category:'Dog Food', sheet:'food', sx:32,sy:0,sw:32,sh:64},
+    {id:'food_large',   name:'Large Dog Food',  category:'Dog Food', sheet:'food', sx:64,sy:0,sw:32,sh:64},
+    // Chew Bones
+    {id:'chew_purple',  name:'Purple Chew Bone', category:'Chew Bones', sheet:'chews', sx:0, sy:0, sw:16,sh:16},
+    {id:'chew_teal',    name:'Teal Chew Bone',   category:'Chew Bones', sheet:'chews', sx:16,sy:0, sw:16,sh:16},
+    {id:'chew_navy',    name:'Navy Chew Bone',   category:'Chew Bones', sheet:'chews', sx:32,sy:0, sw:16,sh:16},
+    {id:'chew_red',     name:'Red Chew Bone',    category:'Chew Bones', sheet:'chews', sx:48,sy:0, sw:16,sh:16},
+    {id:'chew_brown',   name:'Brown Chew Bone',  category:'Chew Bones', sheet:'chews', sx:0, sy:16,sw:16,sh:16},
+    {id:'chew_green',   name:'Green Chew Bone',  category:'Chew Bones', sheet:'chews', sx:16,sy:16,sw:16,sh:16},
+    {id:'chew_mauve',   name:'Mauve Chew Bone',  category:'Chew Bones', sheet:'chews', sx:32,sy:16,sw:16,sh:16},
+    {id:'chew_gray',    name:'Gray Chew Bone',   category:'Chew Bones', sheet:'chews', sx:48,sy:16,sw:16,sh:16},
+    // Collars
+    {id:'collar_green',  name:'Green Collar',  category:'Collars', sheet:'collars', sx:0, sy:0, sw:16,sh:16},
+    {id:'collar_indigo', name:'Indigo Collar', category:'Collars', sheet:'collars', sx:16,sy:0, sw:16,sh:16},
+    {id:'collar_maroon', name:'Maroon Collar', category:'Collars', sheet:'collars', sx:0, sy:16,sw:16,sh:16},
+    {id:'collar_navy',   name:'Navy Collar',   category:'Collars', sheet:'collars', sx:16,sy:16,sw:16,sh:16},
+    // Rope Toy
+    {id:'rope_toy',     name:'Rope Toy', category:'Rope Toys', sheet:'rope', sx:0,sy:0, sw:32,sh:32},
+    // Meat Treats
+    {id:'meat_drumstick', name:'Chicken Drumstick', category:'Meat Treats', sheet:'meat', sx:0,sy:0, sw:16,sh:16},
+    {id:'meat_steak',     name:'Steak',              category:'Meat Treats', sheet:'meat', sx:0,sy:16,sw:16,sh:16},
+    // Shampoo
+    {id:'shampoo_teal',   name:'Teal Shampoo',   category:'Shampoo', sheet:'shampoo', sx:0, sy:0, sw:16,sh:16},
+    {id:'shampoo_olive',  name:'Olive Shampoo',  category:'Shampoo', sheet:'shampoo', sx:16,sy:0, sw:16,sh:16},
+    {id:'shampoo_purple', name:'Purple Shampoo', category:'Shampoo', sheet:'shampoo', sx:0, sy:16,sw:16,sh:16},
+    {id:'shampoo_navy',   name:'Navy Shampoo',   category:'Shampoo', sheet:'shampoo', sx:16,sy:16,sw:16,sh:16},
+    // Vitamins
+    {id:'vitamins_tan',      name:'Tan Vitamins',      category:'Vitamins', sheet:'vitamins', sx:0, sy:0, sw:16,sh:16},
+    {id:'vitamins_blue',     name:'Blue Vitamins',     category:'Vitamins', sheet:'vitamins', sx:16,sy:0, sw:16,sh:16},
+    {id:'vitamins_lavender', name:'Lavender Vitamins', category:'Vitamins', sheet:'vitamins', sx:0, sy:16,sw:16,sh:16},
+    {id:'vitamins_mauve',    name:'Mauve Vitamins',    category:'Vitamins', sheet:'vitamins', sx:16,sy:16,sw:16,sh:16},
+  ];
+  const shopItemById = Object.fromEntries(SHOP_ITEMS.map(it=>[it.id,it]));
 
   // ---------- Data ----------
   const TREASURES = [
@@ -459,6 +636,13 @@
     'The yoyo spins on its string!',
     'The ball bounces out of the way!'
   ];
+  const DOG_FLAVORS = [
+    "The dog's tail wags furiously!",
+    'Woof! The dog barks happily.',
+    'The dog leans into the pets, tongue out.',
+    'The dog gives your hand a big lick.',
+    'The dog does a happy little spin!',
+  ];
 
   // ---------- Scenes ----------
   const SCENES = {
@@ -468,8 +652,8 @@
       wall: '#5b4632',
       doors: [ {side:'east', yRange:[250,350], target:'kitchen', spawn:{x:70,y:300}} ],
       decor: [
-        {x:700,y:60,w:120,h:70,color:'#3f7a2b',label:'🌳',labelSize:46,round:16},
-        {x:80,y:440,w:130,h:70,color:'#3f7a2b',label:'🌳',labelSize:46,round:16},
+        {type:'tree', x:695,y:50, w:110,h:110},
+        {type:'tree', x:75, y:430,w:110,h:110},
       ],
       objects: [
         digSpot(200,120,'dig1'),
@@ -477,6 +661,7 @@
         digSpot(560,140,'dig3'),
         digSpot(660,470,'dig4'),
         digSpot(430,300,'dig5'),
+        petShopStandObj(400,60),
       ]
     },
     kitchen: {
@@ -545,9 +730,26 @@
     return {id:'toy2', type:'raceball', x,y, w:36,h:36, interactRadius:58,
       promptLabel:'Play a Quick Race'};
   }
+  function petShopStandObj(x,y){
+    return {id:'petshop', type:'petshop', x,y, w:140,h:90, interactRadius:100,
+      promptLabel:'Visit the Pet Shop'};
+  }
 
   // ---------- Player / state ----------
   const player = { scene:'outside', x:120, y:300, radius:16, speed:3.2 };
+
+  // The dog lives in the yard (the 'outside' scene), wandering on its own
+  // between idle/sniff/sit/lie/sleep poses and walking to a new spot.
+  const dog = {
+    type:'dog', x:520, y:380, facing:1, size:88,
+    anim:'idle', animStart:Date.now(),
+    state:'idle', stateUntil:Date.now()+1500,
+    tx:520, ty:380,
+    barkUntil:0,
+    isFetch:false, // true only while chasing down a ball you actually threw (vs. ambient play)
+    interactRadius:70, promptLabel:'Pet the Dog',
+  };
+  let ballThrowPos = null; // where a thrown ball currently sits/is being carried; null = ball's at rest on the toy spot
   const keys = {};
   const touchVec = { dx:0, dy:0 }; // set by the on-screen joystick, merged into keyboard movement below
   let nearbyObject = null;
@@ -555,6 +757,29 @@
   let napping = false;
   const inventory = []; // array of treasure ids
   const creations = []; // array of {name, emoji}
+  const petInventory = []; // array of purchased Pet Shop item ids — the "inventory of selections"
+  // Which owned item (by id) is currently placed/displayed in each world
+  // slot — null means "show the free default" (bowl/house) or "nothing
+  // placed there" (food/toy). Swapped via the dropdowns in the Pet Shop.
+  const equipped = { bowl:null, house:null, food:null, toy:null };
+  const KITCHEN_BOWL_POS = {x:700, y:150};
+  const HOUSE_POS = {x:55,  y:220};
+  const BONE_POS  = {x:165, y:275};
+  const FOOD_SPOT = {x:250, y:200}; // the dog walks here to eat, if equipped.food is set
+  const TOY_SPOT  = {x:600, y:350}; // the dog walks here to play/fetch, if equipped.toy is set
+  const DEFAULT_BOWL  = {sheet:'bowls',  sx:0,sy:0, sw:16,sh:16, name:'Green Food Bowl'};
+  const DEFAULT_HOUSE = {sheet:'houses', sx:0,sy:0, sw:96,sh:96, name:'Brown Doghouse'};
+  const DEFAULT_BONE  = {sheet:'bones',  sx:0,sy:0, sw:32,sh:32, name:'Bone'};
+  function spriteDescFor(slot, defaultDesc){
+    const id = equipped[slot];
+    return (id && shopItemById[id]) ? shopItemById[id] : defaultDesc;
+  }
+  function drawSpriteAt(desc, x, y, scale){
+    const sheet = SHOP_SHEETS[desc.sheet];
+    if(sheet.img.complete && sheet.img.naturalWidth){
+      ctx.drawImage(sheet.img, desc.sx,desc.sy,desc.sw,desc.sh, x,y, desc.sw*scale, desc.sh*scale);
+    }
+  }
   const particles = []; // array of {x0,y0,vx,vy,g,color,size,spawnTime,life}
   const DIRT_COLORS = ['#7a5330','#8f6238','#5a3f24','#a97a4a','#6b4423'];
 
@@ -643,15 +868,21 @@
     e.preventDefault();
   }
   function joyEnd(e){
-    let ended = false;
-    for(const touch of e.changedTouches){ if(touch.identifier===joyTouchId){ ended=true; break; } }
-    if(!ended) return;
+    let endedTouch = null;
+    for(const touch of e.changedTouches){ if(touch.identifier===joyTouchId){ endedTouch=touch; break; } }
+    if(!endedTouch) return;
     joyTouchId = null;
     joyBase.style.display = 'none';
     touchVec.dx = 0; touchVec.dy = 0;
-    // Barely moved => it was a tap, not a drag: interact with whatever's
-    // nearby (mirrors the keydown handler's modalOpen guard on E).
-    if(joyMaxDist < TAP_MAX_DIST && !modalOpen) doInteract();
+    // Barely moved => it was a tap, not a drag. If the tap landed right on
+    // an object (the dog, the pet shop stand, ...) interact with that one
+    // directly; otherwise fall back to whatever's nearby the player.
+    if(joyMaxDist < TAP_MAX_DIST && !modalOpen){
+      const p = clientToCanvasPoint(endedTouch.clientX, endedTouch.clientY);
+      const target = findClickTarget(p.x, p.y);
+      if(target) interactWith(target);
+      else doInteract();
+    }
     e.preventDefault();
   }
   joyZone.addEventListener('touchstart', joyStart, {passive:false});
@@ -666,6 +897,7 @@
   document.getElementById('calCloseBtn').addEventListener('click', closeAllModals);
   document.getElementById('craftCloseBtn').addEventListener('click', closeAllModals);
   document.getElementById('raceCloseBtn').addEventListener('click', closeAllModals);
+  document.getElementById('petShopCloseBtn').addEventListener('click', closeAllModals);
   modalOpen = true; // start screen counts as a modal until dismissed
 
   function closeAllModals(){
@@ -673,6 +905,7 @@
     document.getElementById('craftOverlay').classList.add('hidden');
     document.getElementById('startOverlay').classList.add('hidden');
     document.getElementById('raceOverlay').classList.add('hidden');
+    document.getElementById('petShopOverlay').classList.add('hidden');
     raceActive = false;
     modalOpen = false;
   }
@@ -731,6 +964,185 @@
     }
   }
 
+  // ---------- Dog AI ----------
+  function setDogAnim(name){
+    if(dog.anim!==name){ dog.anim=name; dog.animStart=Date.now(); }
+  }
+
+  // Every state maps to one of the sprite sheets — states with no sprite of
+  // their own (walking somewhere, eating, playing, grabbing the ball) borrow
+  // the closest-looking pose instead.
+  const STATE_ANIM = {
+    idle:'idle', sniff:'sniff', sit:'sit', lie:'lie', sleep:'sleep',
+    walk:'walk', goEat:'walk', goPlay:'walk', return:'walk',
+    eating:'sit', playing:'lie', fetching:'sit',
+  };
+  // States where dog.tx/ty is a walk target; everything else is stationary
+  // and just waits out dog.stateUntil.
+  const TRAVEL_STATES = new Set(['walk','goEat','goPlay','return']);
+
+  function pickDogState(){
+    const now = Date.now();
+    // If there's food or a toy out, the dog occasionally wanders over to it
+    // on its own — on top of you being able to call it over directly by
+    // clicking the food spot, or clicking the dog itself to throw a ball.
+    if(equipped.food && Math.random()<0.16){
+      dog.state='goEat'; dog.tx=FOOD_SPOT.x; dog.ty=FOOD_SPOT.y; dog.stateUntil=now+9000;
+      return;
+    }
+    if(equipped.toy && Math.random()<0.18){
+      dog.isFetch = false; // ambient toy visits are just a play session, not a fetch
+      dog.state='goPlay'; dog.tx=TOY_SPOT.x; dog.ty=TOY_SPOT.y; dog.stateUntil=now+9000;
+      return;
+    }
+    const r = Math.random();
+    if(r<0.4){
+      dog.state='walk';
+      dog.tx = 90+Math.random()*(CANVAS_W-180);
+      dog.ty = 220+Math.random()*(CANVAS_H-300);
+      dog.stateUntil = now+8000; // safety timeout if it never quite reaches tx/ty
+    } else if(r<0.6){ dog.state='sniff'; dog.stateUntil=now+2500+Math.random()*2000; }
+    else if(r<0.8){ dog.state='sit';   dog.stateUntil=now+2500+Math.random()*2500; }
+    else if(r<0.92){ dog.state='lie';   dog.stateUntil=now+4000+Math.random()*3000; }
+    else { dog.state='sleep'; dog.stateUntil=now+6000+Math.random()*4000; }
+  }
+
+  // You have to actually own a ball for this — thrown from wherever the
+  // dog currently is, landing somewhere out in the yard for it to chase.
+  function throwBall(){
+    const it = shopItemById[equipped.toy];
+    if(!it) return;
+    const angle = Math.random()*Math.PI*2;
+    const dist = 120+Math.random()*170;
+    const tx = Math.min(Math.max(dog.x+Math.cos(angle)*dist, 60), CANVAS_W-60);
+    const ty = Math.min(Math.max(dog.y+Math.sin(angle)*dist, 200), CANVAS_H-60);
+    ballThrowPos = {x:tx, y:ty};
+    dog.isFetch = true;
+    dog.state = 'goPlay'; dog.tx = tx; dog.ty = ty; dog.stateUntil = Date.now()+9000;
+    showToast(`You throw the ${it.name}!`);
+  }
+
+  // Where to draw the toy: lying where it's at rest, lying where a thrown
+  // ball landed, or riding along with the dog while it's being carried back.
+  function getToyRenderPos(){
+    if(dog.isFetch && ballThrowPos){
+      if(dog.state==='goPlay') return ballThrowPos;
+      if(dog.state==='fetching' || dog.state==='return') return {x:dog.x-6, y:dog.y-6};
+    }
+    return TOY_SPOT;
+  }
+
+  // Calls the dog straight over to eat, instead of waiting for it to wander
+  // there on its own.
+  function callDogToEat(){
+    if(!equipped.food) return;
+    if(dog.state==='eating'){ showToast('The dog is already eating!'); return; }
+    dog.state='goEat'; dog.tx=FOOD_SPOT.x; dog.ty=FOOD_SPOT.y; dog.stateUntil=Date.now()+9000;
+  }
+
+  // Called when a travel state reaches its destination (or, as a safety
+  // net, when its timeout runs out before it quite gets there).
+  function dogArrived(){
+    const now = Date.now();
+    if(dog.state==='walk'){
+      dog.state='idle'; dog.stateUntil=now+800+Math.random()*1500;
+    } else if(dog.state==='goEat'){
+      dog.state='eating'; dog.stateUntil=now+2200;
+      const it = shopItemById[equipped.food];
+      showToast(`Yum! The dog gulps down the ${it ? it.name : 'food'}!`);
+      spawnHeartBurst(dog.x, dog.y-dog.size*0.5);
+    } else if(dog.state==='goPlay'){
+      const it = shopItemById[equipped.toy];
+      if(dog.isFetch && it && it.category==='Balls'){
+        dog.state='fetching'; dog.stateUntil=now+900;
+        showToast(`The dog grabs the ${it.name}!`);
+      } else {
+        dog.state='playing'; dog.stateUntil=now+2600;
+        showToast(`The dog plays happily with the ${it ? it.name : 'toy'}!`);
+        spawnHeartBurst(dog.x, dog.y-dog.size*0.5);
+      }
+    } else if(dog.state==='return'){
+      ballThrowPos = null;
+      dog.isFetch = false;
+      showToast('The dog drops the ball at your feet! 🎾 Click it again to throw!');
+      dog.state='idle'; dog.stateUntil=now+600;
+    }
+  }
+
+  // Called when a stationary state (eating/playing/fetching/...) times out.
+  function dogFinishedAction(){
+    if(dog.state==='fetching'){
+      dog.state='return'; dog.tx=TOY_SPOT.x; dog.ty=TOY_SPOT.y; dog.stateUntil=Date.now()+6000;
+      return;
+    }
+    if(dog.state==='eating'){
+      equipped.food = null; // placed food only sticks around until it's eaten up
+    }
+    pickDogState();
+  }
+
+  function updateDog(){
+    if(player.scene!=='outside') return; // the dog only hangs around the yard
+    const now = Date.now();
+    if(now < dog.barkUntil){ setDogAnim('bark'); return; }
+
+    const traveling = TRAVEL_STATES.has(dog.state);
+    if(traveling){
+      const dx=dog.tx-dog.x, dy=dog.ty-dog.y, d=Math.hypot(dx,dy);
+      if(d<5 || now>=dog.stateUntil){
+        dogArrived();
+      } else {
+        const spd = dog.state==='return' ? 1.6 : 1.3;
+        dog.x += dx/d*spd; dog.y += dy/d*spd;
+        dog.facing = dx<0 ? -1 : 1;
+      }
+    } else if(now >= dog.stateUntil){
+      dogFinishedAction();
+    }
+
+    setDogAnim(STATE_ANIM[dog.state] || 'idle');
+
+    // The interact prompt doubles as a hint: it only offers to throw the
+    // ball when there's actually one out and the dog isn't already fetching.
+    const toy = shopItemById[equipped.toy];
+    const canThrow = toy && toy.category==='Balls'
+      && dog.state!=='goPlay' && dog.state!=='fetching' && dog.state!=='return';
+    dog.promptLabel = canThrow ? 'Throw the Ball' : 'Pet the Dog';
+  }
+
+  function petDog(){
+    const anim = DOG_ANIMS.bark;
+    dog.barkUntil = Date.now() + (anim.frames/anim.fps)*1000;
+    dog.facing = player.x < dog.x ? -1 : 1;
+    spawnHeartBurst(dog.x, dog.y - dog.size*0.55);
+    showToast(DOG_FLAVORS[Math.floor(Math.random()*DOG_FLAVORS.length)]);
+  }
+
+  // Clicking/tapping the dog throws the ball for it to fetch, if you've got
+  // one equipped and it isn't already off chasing one down — otherwise it's
+  // just a pet.
+  function handleDogClick(){
+    const it = shopItemById[equipped.toy];
+    const busyFetching = dog.state==='goPlay' || dog.state==='fetching' || dog.state==='return';
+    if(it && it.category==='Balls' && !busyFetching){
+      throwBall();
+    } else if(it && it.category==='Balls' && busyFetching){
+      showToast("The dog's already after the ball!");
+    } else {
+      petDog();
+    }
+  }
+
+  // The food spot only exists as a clickable/nearby thing while food is
+  // actually equipped — its box is sized to whatever item is placed there.
+  function getFoodSpotObj(){
+    const it = shopItemById[equipped.food];
+    if(!it) return null;
+    const scale = 2.2;
+    return {type:'foodspot', x:FOOD_SPOT.x, y:FOOD_SPOT.y, w:it.sw*scale, h:it.sh*scale,
+      interactRadius:70, promptLabel:'Call the Dog to Eat'};
+  }
+
   function updateInteractables(){
     const scene = SCENES[player.scene];
     let found = null, bestDist = Infinity;
@@ -751,6 +1163,16 @@
       const d = Math.hypot(player.x-cx, player.y-cy);
       if(d < obj.interactRadius && d < bestDist){ found=obj; bestDist=d; }
     }
+    if(player.scene==='outside'){
+      const d = Math.hypot(player.x-dog.x, player.y-dog.y);
+      if(d < dog.interactRadius && d < bestDist){ found=dog; bestDist=d; }
+      const fs = getFoodSpotObj();
+      if(fs){
+        const fcx=fs.x+fs.w/2, fcy=fs.y+fs.h/2;
+        const fd = Math.hypot(player.x-fcx, player.y-fcy);
+        if(fd < fs.interactRadius && fd < bestDist){ found=fs; bestDist=fd; }
+      }
+    }
     nearbyObject = found;
 
     const promptEl = document.getElementById('interactPrompt');
@@ -764,13 +1186,58 @@
 
   function doInteract(){
     if(!nearbyObject) return;
-    if(nearbyObject.type==='dig') handleDig(nearbyObject);
-    else if(nearbyObject.type==='calendar') openCalendar();
-    else if(nearbyObject.type==='toolbench') openCrafting();
-    else if(nearbyObject.type==='bed') takeNap();
-    else if(nearbyObject.type==='table') takeMeal();
-    else if(nearbyObject.type==='raceball') openRace();
+    interactWith(nearbyObject);
   }
+
+  function interactWith(obj){
+    if(obj.type==='dig') handleDig(obj);
+    else if(obj.type==='calendar') openCalendar();
+    else if(obj.type==='toolbench') openCrafting();
+    else if(obj.type==='bed') takeNap();
+    else if(obj.type==='table') takeMeal();
+    else if(obj.type==='raceball') openRace();
+    else if(obj.type==='dog') handleDogClick();
+    else if(obj.type==='petshop') openPetShop();
+    else if(obj.type==='foodspot') callDogToEat();
+  }
+
+  // ---------- Click / tap directly on something ----------
+  // Lets you click or tap an object right on the screen (the dog, the pet
+  // shop stand, etc.) instead of having to walk up to it first — the
+  // walk-up-and-press-E flow above still works the same as always.
+  function objectContainsPoint(obj, px, py){
+    if(obj.type==='dog') return Math.hypot(px-obj.x, py-obj.y) < obj.size*0.6;
+    return px>=obj.x && px<=obj.x+obj.w && py>=obj.y && py<=obj.y+obj.h;
+  }
+  function findClickTarget(px, py){
+    const scene = SCENES[player.scene];
+    for(const obj of scene.objects){
+      if(!obj.interactRadius) continue;
+      if(obj.type==='dig' && obj.dug && Date.now()<obj.cooldownUntil) continue;
+      if(objectContainsPoint(obj, px, py)) return obj;
+    }
+    if(player.scene==='outside'){
+      if(objectContainsPoint(dog, px, py)) return dog;
+      const fs = getFoodSpotObj();
+      if(fs && objectContainsPoint(fs, px, py)) return fs;
+    }
+    return null;
+  }
+  // Converts a page-space (clientX/clientY) point to the canvas's internal
+  // 900x600 coordinate space, undoing whatever CSS scaling fitGameWrap did.
+  function clientToCanvasPoint(clientX, clientY){
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (clientX-rect.left) * (CANVAS_W/rect.width),
+      y: (clientY-rect.top) * (CANVAS_H/rect.height),
+    };
+  }
+  canvas.addEventListener('click', (e)=>{
+    if(modalOpen) return;
+    const p = clientToCanvasPoint(e.clientX, e.clientY);
+    const target = findClickTarget(p.x, p.y);
+    if(target) interactWith(target);
+  });
 
   function handleDig(spot){
     if(spot.dug && Date.now()<spot.cooldownUntil){
@@ -783,6 +1250,7 @@
     spot.cooldownUntil = Date.now()+20000;
     spawnDirtBurst(spot.x+spot.w/2, spot.y+spot.h/2);
     showToast(`You dug up a ${t.name}! ${t.emoji}`);
+    updateCoinChip();
   }
 
   // ---------- Particles ----------
@@ -810,9 +1278,29 @@
       const x = p.x0 + p.vx*t;
       const y = p.y0 + p.vy*t + 0.5*p.g*t*t;
       ctx.globalAlpha = Math.max(0, 1-age/p.life);
-      ctx.fillStyle = p.color;
-      ctx.fillRect(x-p.size/2, y-p.size/2, p.size, p.size);
+      if(p.emoji){
+        ctx.font = `${p.size}px serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(p.emoji, x, y);
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(x-p.size/2, y-p.size/2, p.size, p.size);
+      }
       ctx.globalAlpha = 1;
+    }
+  }
+  function spawnHeartBurst(x,y){
+    for(let i=0;i<6;i++){
+      particles.push({
+        x0:x+(Math.random()-0.5)*24, y0:y,
+        vx:(Math.random()-0.5)*30,
+        vy:-(45+Math.random()*35),
+        g:-25, // gentle upward float instead of falling
+        emoji: Math.random()<0.6 ? '💛' : '✨',
+        size:14+Math.random()*8,
+        spawnTime:Date.now(),
+        life:750+Math.random()*300,
+      });
     }
   }
 
@@ -948,7 +1436,131 @@
     document.getElementById('creationCount').textContent = creations.length;
     spawnCraftBurst();
     renderCrafting();
+    updateCoinChip();
   });
+
+  // ---------- Pet Shop ----------
+  function coinCount(){ return inventory.filter(id=>id==='coin').length; }
+
+  function updateCoinChip(){
+    document.getElementById('coinCount').textContent = coinCount();
+    document.getElementById('petItemCount').textContent = petInventory.length;
+  }
+
+  function shopIconStyle(sheet, sx, sy, sw, sh, scale){
+    return `width:${sw*scale}px;height:${sh*scale}px;`
+      + `background-image:url(${sheet.src});`
+      + `background-position:-${sx*scale}px -${sy*scale}px;`
+      + `background-size:${sheet.w*scale}px ${sheet.h*scale}px;`;
+  }
+
+  function openPetShop(){
+    modalOpen = true;
+    renderPetShop();
+    document.getElementById('petShopOverlay').classList.remove('hidden');
+  }
+
+  function renderPetShop(){
+    document.getElementById('shopCoinCount').textContent = coinCount();
+
+    const categories = [];
+    const byCategory = {};
+    SHOP_ITEMS.forEach(it=>{
+      if(!byCategory[it.category]){ byCategory[it.category]=[]; categories.push(it.category); }
+      byCategory[it.category].push(it);
+    });
+
+    const wrap = document.getElementById('shopCatalog');
+    wrap.innerHTML = '';
+    categories.forEach(cat=>{
+      const h = document.createElement('h3');
+      h.textContent = cat;
+      wrap.appendChild(h);
+      const grid = document.createElement('div');
+      grid.className = 'shopGrid';
+      byCategory[cat].forEach(it=>{
+        const owned = petInventory.includes(it.id);
+        const sheet = SHOP_SHEETS[it.sheet];
+        const card = document.createElement('div');
+        card.className = 'shopItem' + (owned ? ' owned' : '');
+        card.innerHTML = `
+          <div class="shopIcon" style="${shopIconStyle(sheet, it.sx, it.sy, it.sw, it.sh, 2)}"></div>
+          <span>${it.name}</span>
+          <button class="shopBuyBtn" ${owned ? 'disabled' : ''}>${owned ? 'Owned ✓' : '🪙 1'}</button>
+        `;
+        if(!owned){
+          card.querySelector('.shopBuyBtn').addEventListener('click', ()=>buyShopItem(it));
+        }
+        grid.appendChild(card);
+      });
+      wrap.appendChild(grid);
+    });
+
+    const coll = document.getElementById('shopCollection');
+    coll.innerHTML = '';
+    if(petInventory.length===0){
+      coll.innerHTML = '<div id="emptyTreasureNote">Nothing purchased yet — buy something above!</div>';
+    } else {
+      petInventory.forEach(id=>{
+        const it = shopItemById[id];
+        const sheet = SHOP_SHEETS[it.sheet];
+        const chip = document.createElement('div');
+        chip.className = 'creationChip';
+        chip.innerHTML = `<div class="shopIcon" style="${shopIconStyle(sheet, it.sx, it.sy, it.sw, it.sh, 1.5)}margin:0 auto;"></div><span>${it.name}</span>`;
+        coll.appendChild(chip);
+      });
+    }
+
+    renderYardSetup();
+  }
+
+  // One dropdown per world slot — lists whatever you own in the matching
+  // categories, plus a "default / none" option. Picking one updates
+  // `equipped` immediately; drawScene reads it fresh every frame.
+  const YARD_SLOTS = [
+    {select:'equipBowl', slot:'bowl',  categories:['Food Bowls'], defaultLabel:'Default — Green Food Bowl'},
+    {select:'equipHouse',slot:'house', categories:['Doghouses'],  defaultLabel:'Default — Brown Doghouse'},
+    {select:'equipFood', slot:'food',  categories:['Dog Food','Meat Treats'], defaultLabel:'— None (empty spot) —'},
+    {select:'equipToy',  slot:'toy',   categories:['Balls','Chew Bones','Collars','Rope Toys'], defaultLabel:'— None (empty spot) —'},
+  ];
+  function renderYardSetup(){
+    YARD_SLOTS.forEach(({select, slot, categories, defaultLabel})=>{
+      const sel = document.getElementById(select);
+      sel.innerHTML = '';
+      const optDefault = document.createElement('option');
+      optDefault.value = '';
+      optDefault.textContent = defaultLabel;
+      sel.appendChild(optDefault);
+      petInventory.forEach(id=>{
+        const it = shopItemById[id];
+        if(!it || !categories.includes(it.category)) return;
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = it.name;
+        sel.appendChild(opt);
+      });
+      sel.value = equipped[slot] || '';
+      sel.onchange = ()=>{
+        equipped[slot] = sel.value || null;
+        const label = sel.value ? shopItemById[sel.value].name : defaultLabel;
+        showToast(`Now set: ${label}`);
+      };
+    });
+  }
+
+  function buyShopItem(item){
+    if(petInventory.includes(item.id)) return;
+    const coinIdx = inventory.indexOf('coin');
+    if(coinIdx===-1){
+      showToast('Not enough gold coins — dig some up outside first!');
+      return;
+    }
+    inventory.splice(coinIdx,1);
+    petInventory.push(item.id);
+    showToast(`Bought the ${item.name}! 🐾`);
+    renderPetShop();
+    updateCoinChip();
+  }
 
   // ---------- Bed / Nap ----------
   function takeNap(){
@@ -1135,6 +1747,7 @@
 
     // decor (background flavor, non-interactive)
     (scene.decor||[]).forEach(d=>{
+      if(d.type==='tree'){ drawAnimatedTree(d); return; }
       ctx.fillStyle = d.color;
       drawRoundedRect(d.x,d.y,d.w,d.h,d.round||8);
       ctx.fill();
@@ -1152,8 +1765,30 @@
       else if(obj.type==='bed') drawBed(obj);
       else if(obj.type==='table') drawTable(obj);
       else if(obj.type==='raceball') drawRaceBall(obj);
+      else if(obj.type==='petshop') drawPetShopStand(obj);
     }
 
+    // The bowl/doghouse/food/toy are drawn straight from `equipped` rather
+    // than as scene objects, so swapping them in the Pet Shop's Yard Setup
+    // dropdowns takes effect immediately without rebuilding the scene.
+    if(player.scene==='kitchen'){
+      const bowl = spriteDescFor('bowl', DEFAULT_BOWL);
+      drawSpriteAt(bowl, KITCHEN_BOWL_POS.x, KITCHEN_BOWL_POS.y, 2.5);
+    }
+    if(player.scene==='outside'){
+      const house = spriteDescFor('house', DEFAULT_HOUSE);
+      drawSpriteAt(house, HOUSE_POS.x, HOUSE_POS.y, 1);
+      drawSpriteAt(DEFAULT_BONE, BONE_POS.x, BONE_POS.y, 1.6);
+      if(equipped.food && shopItemById[equipped.food]){
+        drawSpriteAt(shopItemById[equipped.food], FOOD_SPOT.x, FOOD_SPOT.y, 2.2);
+      }
+      if(equipped.toy && shopItemById[equipped.toy]){
+        const pos = getToyRenderPos();
+        drawSpriteAt(shopItemById[equipped.toy], pos.x, pos.y, 2.2);
+      }
+    }
+
+    if(player.scene==='outside') drawDog();
     drawParticles();
     drawPlayer();
   }
@@ -1295,6 +1930,53 @@
     unglow(obj);
   }
 
+  function drawPetShopStand(obj){
+    ctx.save();
+    ctx.strokeStyle = '#4ecbb0';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8,6]);
+    drawRoundedRect(obj.x-16, obj.y-16, obj.w+32, obj.h+32, 16);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    glowIf(obj,'#4ecbb0');
+    ctx.fillStyle = '#7a5330';
+    drawRoundedRect(obj.x, obj.y, obj.w, obj.h, 10);
+    ctx.fill();
+    ctx.strokeStyle='#4a2e17'; ctx.lineWidth=3; ctx.stroke();
+
+    ctx.font='36px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🐾', obj.x+obj.w*0.32, obj.y+obj.h*0.55);
+    ctx.fillText('🪙', obj.x+obj.w*0.68, obj.y+obj.h*0.45);
+
+    ctx.font='bold 12px sans-serif'; ctx.fillStyle='#d6fff3';
+    ctx.fillText('PET SHOP', obj.x+obj.w/2, obj.y-22);
+    unglow(obj);
+  }
+
+  function drawDog(){
+    glowIf(dog,'#ffd54a');
+
+    ctx.beginPath();
+    ctx.ellipse(dog.x, dog.y+dog.size*0.4, dog.size*0.45, dog.size*0.14, 0,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.22)'; ctx.fill();
+
+    const anim = DOG_ANIMS[dog.anim];
+    const elapsed = (Date.now()-dog.animStart)/1000*anim.fps;
+    const frame = anim.loop===false ? Math.min(anim.frames-1, Math.floor(elapsed))
+                                     : Math.floor(elapsed) % anim.frames;
+    if(anim.img.complete && anim.img.naturalWidth){
+      ctx.save();
+      ctx.translate(dog.x, dog.y);
+      ctx.scale(dog.facing, 1);
+      ctx.drawImage(anim.img, frame*DOG_FRAME, 0, DOG_FRAME, DOG_FRAME,
+        -dog.size/2, -dog.size/2, dog.size, dog.size);
+      ctx.restore();
+    }
+    unglow(dog);
+  }
+
   function drawPlayer(){
     ctx.beginPath();
     ctx.ellipse(player.x, player.y+player.radius-2, player.radius, player.radius/2.5, 0,0,Math.PI*2);
@@ -1313,11 +1995,13 @@
   // ---------- Loop ----------
   function loop(){
     updatePlayer();
+    updateDog();
     updateInteractables();
     drawScene();
     requestAnimationFrame(loop);
   }
   document.getElementById('roomName').textContent = SCENES[player.scene].name;
+  updateCoinChip();
   loop();
 })();
 </script>
