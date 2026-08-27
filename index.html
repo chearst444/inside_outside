@@ -568,6 +568,7 @@
     {id:'chew_green',   name:'Green Chew Bone',  category:'Chew Bones', sheet:'chews', sx:16,sy:16,sw:16,sh:16},
     {id:'chew_mauve',   name:'Mauve Chew Bone',  category:'Chew Bones', sheet:'chews', sx:32,sy:16,sw:16,sh:16},
     {id:'chew_gray',    name:'Gray Chew Bone',   category:'Chew Bones', sheet:'chews', sx:48,sy:16,sw:16,sh:16},
+    {id:'bone_plain',   name:'Plain Bone',       category:'Chew Bones', sheet:'bones', sx:0, sy:0, sw:32,sh:32},
     // Collars
     {id:'collar_green',  name:'Green Collar',  category:'Collars', sheet:'collars', sx:0, sy:0, sw:16,sh:16},
     {id:'collar_indigo', name:'Indigo Collar', category:'Collars', sheet:'collars', sx:16,sy:0, sw:16,sh:16},
@@ -661,6 +662,9 @@
         digSpot(560,140,'dig3'),
         digSpot(660,470,'dig4'),
         digSpot(430,300,'dig5'),
+        coinSpot(780,250,'coin1'),
+        coinSpot(500,470,'coin2'),
+        coinSpot(150,360,'coin3'),
         petShopStandObj(400,60),
       ]
     },
@@ -706,6 +710,12 @@
     return {id,type:'dig', x,y, w:56,h:44, interactRadius:60,
       promptLabel:'Dig for treasure', dug:false, cooldownUntil:0};
   }
+  // Same as a regular dig spot, but always turns up a gold coin instead of
+  // a random treasure — dedicated coin sources for the Pet Shop economy.
+  function coinSpot(x,y,id){
+    return {id,type:'dig', x,y, w:56,h:44, interactRadius:60,
+      promptLabel:'Dig for a Gold Coin', dug:false, cooldownUntil:0, guaranteedCoin:true};
+  }
   function calendarObj(x,y){
     return {id:'calendar', type:'calendar', x,y, w:80,h:56, interactRadius:70,
       promptLabel:'View the Calendar'};
@@ -741,7 +751,7 @@
   // The dog lives in the yard (the 'outside' scene), wandering on its own
   // between idle/sniff/sit/lie/sleep poses and walking to a new spot.
   const dog = {
-    type:'dog', x:520, y:380, facing:1, size:88,
+    type:'dog', scene:'outside', x:520, y:380, facing:1, size:88,
     anim:'idle', animStart:Date.now(),
     state:'idle', stateUntil:Date.now()+1500,
     tx:520, ty:380,
@@ -922,6 +932,15 @@
 
   // ---------- Movement / transitions ----------
   function switchScene(target, spawn){
+    // The dog tags along through doors if it's close by when you go
+    // through one — otherwise it just stays behind in the room it's in.
+    if(dog.scene===player.scene && Math.hypot(player.x-dog.x, player.y-dog.y) < 140){
+      dog.scene = target;
+      dog.x = Math.min(Math.max(spawn.x + (spawn.x < CANVAS_W/2 ? 44 : -44), 60), CANVAS_W-60);
+      dog.y = spawn.y;
+      dog.tx = dog.x; dog.ty = dog.y;
+      dog.state = 'idle'; dog.stateUntil = Date.now()+900;
+    }
     player.scene = target;
     player.x = spawn.x;
     player.y = spawn.y;
@@ -986,11 +1005,12 @@
     // If there's food or a toy out, the dog occasionally wanders over to it
     // on its own — on top of you being able to call it over directly by
     // clicking the food spot, or clicking the dog itself to throw a ball.
-    if(equipped.food && Math.random()<0.16){
+    // Both are yard fixtures, so this only applies while the dog is outside.
+    if(dog.scene==='outside' && equipped.food && Math.random()<0.16){
       dog.state='goEat'; dog.tx=FOOD_SPOT.x; dog.ty=FOOD_SPOT.y; dog.stateUntil=now+9000;
       return;
     }
-    if(equipped.toy && Math.random()<0.18){
+    if(dog.scene==='outside' && equipped.toy && Math.random()<0.18){
       dog.isFetch = false; // ambient toy visits are just a play session, not a fetch
       dog.state='goPlay'; dog.tx=TOY_SPOT.x; dog.ty=TOY_SPOT.y; dog.stateUntil=now+9000;
       return;
@@ -1082,7 +1102,7 @@
   }
 
   function updateDog(){
-    if(player.scene!=='outside') return; // the dog only hangs around the yard
+    if(player.scene!==dog.scene) return; // only simulated while you're in the same room as it
     const now = Date.now();
     if(now < dog.barkUntil){ setDogAnim('bark'); return; }
 
@@ -1105,7 +1125,7 @@
     // The interact prompt doubles as a hint: it only offers to throw the
     // ball when there's actually one out and the dog isn't already fetching.
     const toy = shopItemById[equipped.toy];
-    const canThrow = toy && toy.category==='Balls'
+    const canThrow = dog.scene==='outside' && toy && toy.category==='Balls'
       && dog.state!=='goPlay' && dog.state!=='fetching' && dog.state!=='return';
     dog.promptLabel = canThrow ? 'Throw the Ball' : 'Pet the Dog';
   }
@@ -1123,10 +1143,11 @@
   // just a pet.
   function handleDogClick(){
     const it = shopItemById[equipped.toy];
+    const ballReady = dog.scene==='outside' && it && it.category==='Balls';
     const busyFetching = dog.state==='goPlay' || dog.state==='fetching' || dog.state==='return';
-    if(it && it.category==='Balls' && !busyFetching){
+    if(ballReady && !busyFetching){
       throwBall();
-    } else if(it && it.category==='Balls' && busyFetching){
+    } else if(ballReady && busyFetching){
       showToast("The dog's already after the ball!");
     } else {
       petDog();
@@ -1163,9 +1184,11 @@
       const d = Math.hypot(player.x-cx, player.y-cy);
       if(d < obj.interactRadius && d < bestDist){ found=obj; bestDist=d; }
     }
-    if(player.scene==='outside'){
+    if(player.scene===dog.scene){
       const d = Math.hypot(player.x-dog.x, player.y-dog.y);
       if(d < dog.interactRadius && d < bestDist){ found=dog; bestDist=d; }
+    }
+    if(player.scene==='outside'){
       const fs = getFoodSpotObj();
       if(fs){
         const fcx=fs.x+fs.w/2, fcy=fs.y+fs.h/2;
@@ -1216,8 +1239,8 @@
       if(obj.type==='dig' && obj.dug && Date.now()<obj.cooldownUntil) continue;
       if(objectContainsPoint(obj, px, py)) return obj;
     }
+    if(player.scene===dog.scene && objectContainsPoint(dog, px, py)) return dog;
     if(player.scene==='outside'){
-      if(objectContainsPoint(dog, px, py)) return dog;
       const fs = getFoodSpotObj();
       if(fs && objectContainsPoint(fs, px, py)) return fs;
     }
@@ -1244,7 +1267,7 @@
       showToast('Nothing here yet — try again later.');
       return;
     }
-    const t = TREASURES[Math.floor(Math.random()*TREASURES.length)];
+    const t = spot.guaranteedCoin ? treasureById['coin'] : TREASURES[Math.floor(Math.random()*TREASURES.length)];
     inventory.push(t.id);
     spot.dug = true;
     spot.cooldownUntil = Date.now()+20000;
@@ -1788,7 +1811,7 @@
       }
     }
 
-    if(player.scene==='outside') drawDog();
+    if(player.scene===dog.scene) drawDog();
     drawParticles();
     drawPlayer();
   }
@@ -1815,6 +1838,10 @@
       ctx.beginPath(); ctx.ellipse(cx,cy,obj.w/2-4,obj.h/2.6-4,0,0,Math.PI*2); ctx.fill();
       ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText('⛏️', cx, cy-2);
+      if(obj.guaranteedCoin){
+        ctx.font='16px serif';
+        ctx.fillText('🪙', cx+obj.w/2-6, cy-obj.h/2+2);
+      }
     }
     unglow(obj);
   }
