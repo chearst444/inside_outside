@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#111">
 <title>Inside/Outside</title>
 <style>
   :root{
@@ -13,16 +17,20 @@
     font-family: 'Segoe UI', system-ui, sans-serif;
     overflow:hidden;
     user-select:none;
+    touch-action:none;
+    display:flex; align-items:center; justify-content:center;
   }
   #gameWrap{
     position:relative;
+    /* Sized in JS to the largest 900:600 rect that fits the viewport, so
+       it scales down to phone screens instead of overflowing them. */
     width:900px; height:600px;
-    margin:20px auto;
     box-shadow:0 0 0 4px #000, 0 0 30px rgba(0,0,0,.6);
     border-radius:8px;
     overflow:hidden;
+    touch-action:none;
   }
-  canvas{ display:block; background:#000; }
+  canvas{ display:block; background:#000; width:100%; height:100%; }
 
   /* HUD */
   #hud{
@@ -194,6 +202,49 @@
     text-shadow:0 2px 6px rgba(0,0,0,.6);
   }
 
+  /* touch controls (mobile) */
+  #touchControls{ display:none; }
+  body.touch-mode #touchControls{ display:block; }
+  body.touch-mode #interactPrompt kbd{ display:none; }
+
+  #joystickZone{
+    position:absolute; left:0; bottom:0;
+    width:45%; height:55%;
+    pointer-events:auto;
+    z-index:15; /* below .overlay's z-index:20, so open modals cover and block these */
+  }
+  #joystickBase{
+    position:absolute;
+    width:100px; height:100px;
+    border-radius:50%;
+    background:rgba(255,255,255,.12);
+    border:2px solid rgba(255,255,255,.3);
+    display:none;
+  }
+  #joystickKnob{
+    position:absolute;
+    width:44px; height:44px;
+    margin:-22px 0 0 -22px;
+    border-radius:50%;
+    background:rgba(255,255,255,.5);
+    border:2px solid rgba(255,255,255,.7);
+    left:50%; top:50%;
+  }
+  #interactBtn{
+    position:absolute; right:22px; bottom:26px;
+    width:78px; height:78px;
+    border-radius:50%;
+    background:rgba(255,207,74,.35);
+    border:2px solid rgba(255,207,74,.7);
+    color:#fff; font-weight:800; font-size:15px;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+    pointer-events:auto;
+    z-index:15; /* below .overlay's z-index:20, so open modals cover and block these */
+    box-shadow:0 4px 14px rgba(0,0,0,.4);
+  }
+  #interactBtn.active{ background:rgba(255,207,74,.6); }
+
   /* start screen */
   #startPanel{ text-align:center; }
   #startPanel h1{ margin:0 0 6px; font-size:26px; }
@@ -207,6 +258,25 @@
   #startBtn{
     padding:10px 28px; background:#7cd67c; border:none; border-radius:10px;
     font-weight:800; font-size:15px; cursor:pointer;
+  }
+
+  /* Narrow phones: stack the crafting columns instead of squeezing both
+     side by side, and trim panel padding so more content fits. */
+  @media (max-width: 480px){
+    .panel{ padding:14px 16px; }
+    .craftCols{ flex-direction:column; gap:14px; }
+  }
+
+  /* The game keeps its 3:2 landscape shape at any screen size, so a
+     portrait phone gets a small, letterboxed view — nudge toward landscape. */
+  #rotateHint{ display:none; }
+  @media (orientation: portrait){
+    body.touch-mode #rotateHint{
+      display:block;
+      position:fixed; left:0; right:0; bottom:10px;
+      text-align:center; font-size:12px; color:#8a8f9c;
+      pointer-events:none;
+    }
   }
 </style>
 </head>
@@ -225,6 +295,13 @@
 
   <div id="toasts"></div>
 
+  <div id="touchControls">
+    <div id="joystickZone">
+      <div id="joystickBase"><div id="joystickKnob"></div></div>
+    </div>
+    <div id="interactBtn">✋<br>Interact</div>
+  </div>
+
   <div id="napOverlay"><div id="napText">You take a quiet, refreshing nap...</div></div>
 
   <!-- Start screen -->
@@ -234,9 +311,13 @@
       <p>Explore the yard and dig up buried treasures, then bring them home.
       Check the kitchen calendar, play with the toys in your bedroom, and use your
       <b>Restoration Workbench</b> to craft the treasures into skillfully restored creations!</p>
-      <div class="keys">
+      <div class="keys" id="keyboardHint">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows<br>Move</div>
         <div><kbd>E</kbd><br>Interact</div>
+      </div>
+      <div class="keys hidden" id="touchHint">
+        <div>🕹️ Left thumb<br>Move</div>
+        <div>✋ Right thumb<br>Interact</div>
       </div>
       <button id="startBtn">Start Playing</button>
     </div>
@@ -285,6 +366,8 @@
     </div>
   </div>
 </div>
+
+<div id="rotateHint">💡 Rotate your phone sideways for a bigger view</div>
 
 <script>
 (function(){
@@ -408,6 +491,7 @@
   // ---------- Player / state ----------
   const player = { scene:'outside', x:120, y:300, radius:16, speed:3.2 };
   const keys = {};
+  const touchVec = { dx:0, dy:0 }; // set by the on-screen joystick, merged into keyboard movement below
   let nearbyObject = null;
   let modalOpen = false;
   let napping = false;
@@ -428,6 +512,98 @@
     if(k==='e' && !e.repeat) doInteract();
   });
   window.addEventListener('keyup', (e)=>{ keys[e.key.toLowerCase()]=false; });
+
+  // ---------- Touch / mobile support ----------
+  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  if(isTouch) document.body.classList.add('touch-mode');
+  document.getElementById('keyboardHint').classList.toggle('hidden', isTouch);
+  document.getElementById('touchHint').classList.toggle('hidden', !isTouch);
+
+  // The canvas is a fixed 900x600 internally; #gameWrap is just resized to
+  // the largest rect of that aspect ratio that fits the viewport, and the
+  // canvas's CSS width/height (set to 100% above) stretches to match, so
+  // no drawing/coordinate code needs to know or care about screen size.
+  const gameWrap = document.getElementById('gameWrap');
+  function fitGameWrap(){
+    const margin = 12;
+    const ratio = CANVAS_W / CANVAS_H;
+    let w = window.innerWidth - margin*2;
+    let h = w / ratio;
+    if(h > window.innerHeight - margin*2){
+      h = window.innerHeight - margin*2;
+      w = h * ratio;
+    }
+    gameWrap.style.width = Math.round(w) + 'px';
+    gameWrap.style.height = Math.round(h) + 'px';
+  }
+  window.addEventListener('resize', fitGameWrap);
+  window.addEventListener('orientationchange', fitGameWrap);
+  fitGameWrap();
+
+  // Virtual joystick: drag anywhere in the bottom-left zone to move. The
+  // base recenters under the finger on touchstart so it works wherever a
+  // thumb naturally lands, same idea as most mobile twin-stick games.
+  const joyZone = document.getElementById('joystickZone');
+  const joyBase = document.getElementById('joystickBase');
+  const joyKnob = document.getElementById('joystickKnob');
+  const JOY_RADIUS = 50;
+  let joyTouchId = null;
+  let joyCenter = {x:0,y:0};
+
+  function joyStart(e){
+    if(joyTouchId!==null) return;
+    const t = e.changedTouches[0];
+    joyTouchId = t.identifier;
+    const rect = joyZone.getBoundingClientRect();
+    joyCenter = { x:t.clientX-rect.left, y:t.clientY-rect.top };
+    joyBase.style.left = (joyCenter.x-JOY_RADIUS)+'px';
+    joyBase.style.top = (joyCenter.y-JOY_RADIUS)+'px';
+    joyBase.style.display = 'block';
+    joyKnob.style.left = '50%'; joyKnob.style.top = '50%';
+    e.preventDefault();
+  }
+  function joyMove(e){
+    if(joyTouchId===null) return;
+    let t = null;
+    for(const touch of e.changedTouches){ if(touch.identifier===joyTouchId){ t=touch; break; } }
+    if(!t) return;
+    const rect = joyZone.getBoundingClientRect();
+    const dx = (t.clientX-rect.left) - joyCenter.x;
+    const dy = (t.clientY-rect.top) - joyCenter.y;
+    const dist = Math.hypot(dx,dy);
+    const clamped = Math.min(dist, JOY_RADIUS);
+    const angle = Math.atan2(dy,dx);
+    joyKnob.style.left = (JOY_RADIUS + Math.cos(angle)*clamped)+'px';
+    joyKnob.style.top = (JOY_RADIUS + Math.sin(angle)*clamped)+'px';
+    if(dist < 10){ touchVec.dx = 0; touchVec.dy = 0; } // deadzone near center
+    else { touchVec.dx = dx/dist; touchVec.dy = dy/dist; }
+    e.preventDefault();
+  }
+  function joyEnd(e){
+    let ended = false;
+    for(const touch of e.changedTouches){ if(touch.identifier===joyTouchId){ ended=true; break; } }
+    if(!ended) return;
+    joyTouchId = null;
+    joyBase.style.display = 'none';
+    touchVec.dx = 0; touchVec.dy = 0;
+    e.preventDefault();
+  }
+  joyZone.addEventListener('touchstart', joyStart, {passive:false});
+  joyZone.addEventListener('touchmove', joyMove, {passive:false});
+  joyZone.addEventListener('touchend', joyEnd, {passive:false});
+  joyZone.addEventListener('touchcancel', joyEnd, {passive:false});
+
+  const interactBtn = document.getElementById('interactBtn');
+  interactBtn.addEventListener('touchstart', (e)=>{
+    e.preventDefault();
+    if(modalOpen) return; // mirrors the keydown handler's guard (e.g. don't re-trigger mid-nap)
+    interactBtn.classList.add('active');
+    doInteract();
+  }, {passive:false});
+  interactBtn.addEventListener('touchend', (e)=>{
+    e.preventDefault();
+    interactBtn.classList.remove('active');
+  }, {passive:false});
 
   document.getElementById('startBtn').addEventListener('click', ()=>{
     document.getElementById('startOverlay').classList.add('hidden');
@@ -470,6 +646,7 @@
     if(keys['arrowright']||keys['d']) dx+=1;
     if(keys['arrowup']||keys['w']) dy-=1;
     if(keys['arrowdown']||keys['s']) dy+=1;
+    dx += touchVec.dx; dy += touchVec.dy;
     if(dx||dy){ const len=Math.hypot(dx,dy); dx/=len; dy/=len; }
 
     let nx = player.x + dx*player.speed;
