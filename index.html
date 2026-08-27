@@ -112,6 +112,13 @@
     padding:20px 24px;
     width:520px; max-width:88%;
     max-height:90%; overflow-y:auto;
+    /* html/body/#gameWrap all set touch-action:none (so dragging to move
+       doesn't trigger page scroll/zoom) — that restriction cascades down
+       and silently blocks native touch-scrolling in here too unless this
+       re-enables it. Without it, on short mobile viewports, anything
+       pushed below the fold (buy buttons, the craft button, ...) becomes
+       untappable — no way to scroll down to it. */
+    touch-action: pan-y;
     box-shadow:0 20px 60px rgba(0,0,0,.6);
   }
   .panel h2{ margin:0 0 4px; font-size:20px; }
@@ -154,6 +161,7 @@
   #treasureList, #creationList{
     display:flex; flex-wrap:wrap; gap:8px; min-height:60px;
     max-height:180px; overflow-y:auto; padding-right:2px;
+    touch-action: pan-y; /* see .panel's touch-action note */
   }
   .itemChip{
     background:#2c3040; border:1px solid rgba(255,255,255,.15);
@@ -182,7 +190,7 @@
 
   /* pet shop */
   #shopCoinChip{ display:inline-flex; margin-bottom:12px; background:rgba(255,207,74,.15); border-color:rgba(255,207,74,.4); }
-  #shopCatalog{ max-height:340px; overflow-y:auto; padding-right:4px; }
+  #shopCatalog{ max-height:340px; overflow-y:auto; padding-right:4px; touch-action: pan-y; }
   #shopCatalog h3{ font-size:13px; color:#9aa0ac; margin:14px 0 8px; text-transform:uppercase; letter-spacing:.5px; }
   #shopCatalog h3:first-child{ margin-top:0; }
   .shopCollectionHeading{ font-size:13px; color:#9aa0ac; margin:16px 0 8px; text-transform:uppercase; letter-spacing:.5px; }
@@ -199,7 +207,7 @@
     padding:3px 8px; font-size:11px; font-weight:800; cursor:pointer;
   }
   .shopBuyBtn:disabled{ background:#3a4a33; color:#8fbf7a; cursor:default; }
-  #shopCollection{ display:flex; flex-wrap:wrap; gap:8px; min-height:40px; max-height:150px; overflow-y:auto; padding-right:2px; }
+  #shopCollection{ display:flex; flex-wrap:wrap; gap:8px; min-height:40px; max-height:150px; overflow-y:auto; padding-right:2px; touch-action: pan-y; }
   #shopCollection .shopIcon{ image-rendering:pixelated; }
   #yardSetup{ display:flex; flex-direction:column; gap:10px; margin-bottom:4px; }
   #yardSetup label{ display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px; color:#c9cdd6; }
@@ -369,6 +377,13 @@
     #startPanel p{ font-size:12.5px; line-height:1.35; }
     #startPanel .keys{ margin:10px 0; }
     #startBtn{ padding:7px 22px; font-size:14px; }
+    /* Same idea for the richer modals — less fixed height reserved per
+       section leaves more of the panel's own scroll (now touch-scrollable)
+       to actually show, instead of stacking scroll-within-scroll. */
+    .panel{ padding:14px 16px; }
+    #shopCatalog{ max-height:34vh; }
+    #shopCollection{ max-height:80px; }
+    #treasureList, #creationList{ max-height:110px; }
   }
 
   /* The game keeps its 3:2 landscape shape at any screen size, so a
@@ -422,10 +437,9 @@
   <div class="overlay" id="startOverlay">
     <div class="panel" id="startPanel">
       <h1>🏡 Inside/Outside</h1>
-      <p>Explore the yard and dig up buried treasures and gold coins, then bring them home.
-      Check the kitchen calendar, play the sliding puzzle and a game of Pong in your bedroom, and use your
-      <b>Restoration Workbench</b> to craft treasures into creations — every craft is worth a coin too!
-      Touch your dog <b>Max</b> to pet him or send him fetching, and spend your coins at the yard's <b>Pet Shop</b>.</p>
+      <p>Dig up treasures and gold coins, craft them at your <b>Restoration Workbench</b>,
+      and play the puzzle and Pong in your bedroom — every win is worth a coin too!
+      Touch your dog <b>Max</b> to pet him or send him fetching, and spend coins at the yard's <b>Pet Shop</b>.</p>
       <div class="keys" id="keyboardHint">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows<br>Move</div>
         <div><kbd>E</kbd><br>Interact</div>
