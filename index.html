@@ -71,6 +71,15 @@
     padding:1px 7px; margin-right:6px; font-weight:700;
   }
 
+  /* mini map — outside only, marks the guaranteed-coin dig spots */
+  #miniMap{
+    position:absolute; top:44px; right:14px;
+    width:130px; height:90px; /* override the generic canvas{width:100%} rule below */
+    border-radius:8px; border:1px solid rgba(255,255,255,.25);
+    box-shadow:0 4px 14px rgba(0,0,0,.5);
+    pointer-events:none; display:none;
+  }
+
   #toasts{
     position:absolute; top:56px; right:14px;
     display:flex; flex-direction:column; gap:6px; align-items:flex-end;
@@ -390,6 +399,8 @@
 
   <div id="interactPrompt"><kbd>E</kbd><span id="promptText"></span></div>
 
+  <canvas id="miniMap" width="130" height="90"></canvas>
+
   <div id="dogMenu" class="hidden">
     <button id="dogMenuPet">🐕 Pet</button>
     <button id="dogMenuFetch">🎾 Fetch</button>
@@ -480,12 +491,14 @@
       <div id="shopCatalog"></div>
 
       <h3 class="shopCollectionHeading">Yard Setup</h3>
-      <div class="sub" style="margin-bottom:10px;">Swap in anything you own. Max eats whatever's set below (meat treats go in the kitchen bowl — bring him inside first; dog food goes out at his yard spot) and plays with whatever's on the toy spot. Touch Max any time you own a ball to fetch — it doesn't need to be placed here.</div>
+      <div class="sub" style="margin-bottom:10px;">Swap in anything you own. Max eats whatever's set below (bring him inside first — food goes in the kitchen bowl) and plays with whatever's on the toy spot. Touch Max any time you own a ball to fetch — it doesn't need to be placed here. A collar is worn instead of played with, and your first bed goes straight to the bedroom.</div>
       <div id="yardSetup">
         <label>Food Bowl (kitchen) <select id="equipBowl"></select></label>
         <label>Doghouse (yard) <select id="equipHouse"></select></label>
-        <label>Food (bowl or yard spot) <select id="equipFood"></select></label>
+        <label>Food (kitchen bowl) <select id="equipFood"></select></label>
         <label>Toy Spot (yard) <select id="equipToy"></select></label>
+        <label>Collar (worn) <select id="equipCollar"></select></label>
+        <label>Bed (bedroom) <select id="equipBed"></select></label>
       </div>
 
       <h3 class="shopCollectionHeading">Your Collection</h3>
@@ -679,8 +692,8 @@
   };
   // Combining two of the same treasure — named per-treasure instead of a
   // generic "Twin X", so it still feels like a distinct, worthwhile prize.
+  // (coin+coin is handled separately, as pure gold, above TWIN_RESULTS.)
   const TWIN_RESULTS = {
-    coin:  {name:"Merchant's Fortune", emoji:'💰', flavor:'Two coins fuse into a glinting stack — a small fortune.'},
     gem:   {name:'Radiant Cluster',    emoji:'💠', flavor:'Two gems grow together into a single dazzling cluster.'},
     key:   {name:'Skeleton Ring',      emoji:'🔑', flavor:"A matched pair of keys, joined into a jailer's ring."},
     bone:  {name:'Bone Scepter',       emoji:'🏆', flavor:'Two bones bound together into a small ceremonial scepter.'},
@@ -834,25 +847,34 @@
   // Which owned item (by id) is currently placed/displayed in each world
   // slot — null means "show the free default" (bowl/house) or "nothing
   // placed there" (food/toy). Swapped via the dropdowns in the Pet Shop.
-  const equipped = { bowl:null, house:null, food:null, toy:null };
+  const equipped = { bowl:null, house:null, food:null, toy:null, collar:null, bed:null };
   const KITCHEN_BOWL_POS = {x:700, y:150};
   const HOUSE_POS = {x:55,  y:220};
   const BONE_POS  = {x:165, y:275};
-  const FOOD_SPOT = {x:250, y:200}; // Dog Food walks here to be eaten, out in the yard
   const TOY_SPOT  = {x:600, y:350}; // the dog walks here to play/fetch, if equipped.toy is set
+  const DOG_BED_POS = {x:560, y:70}; // bedroom — placed as soon as you buy your first bed
+  const DOG_BED_SCALE = 1.8;
   const DEFAULT_BOWL  = {sheet:'bowls',  sx:0,sy:0, sw:16,sh:16, name:'Green Food Bowl'};
   const DEFAULT_HOUSE = {sheet:'houses', sx:0,sy:0, sw:96,sh:96, name:'Brown Doghouse'};
   const DEFAULT_BONE  = {sheet:'bones',  sx:0,sy:0, sw:32,sh:32, name:'Bone'};
   const GAME_START_TIME = Date.now();
   const BONE_LIFETIME_MS = 5*60*1000; // the starter bone by the doghouse disappears after 5 minutes of play
+  // A rough color per collar variant, since collars are worn rather than
+  // drawn from their own sprite once equipped.
+  const COLLAR_COLORS = {
+    collar_green:  '#2e5c34',
+    collar_indigo: '#332a5e',
+    collar_maroon: '#5c1f24',
+    collar_navy:   '#1c2440',
+  };
 
-  // Meat Treats go in the kitchen bowl (Max has to be inside to eat them);
-  // Dog Food goes out at the yard's food spot. Returns null with nothing set.
+  // All placed food — Dog Food and Meat Treats alike — goes in the kitchen
+  // bowl now; Max has to be brought inside to eat it. Returns null if
+  // nothing's set.
   function getFoodTarget(){
     const it = shopItemById[equipped.food];
     if(!it) return null;
-    if(it.category==='Meat Treats') return {pos:KITCHEN_BOWL_POS, scene:'kitchen'};
-    return {pos:FOOD_SPOT, scene:'outside'};
+    return {pos:KITCHEN_BOWL_POS, scene:'kitchen'};
   }
   function spriteDescFor(slot, defaultDesc){
     const id = equipped[slot];
@@ -1009,9 +1031,10 @@
 
   // ---------- Movement / transitions ----------
   function switchScene(target, spawn){
-    // The dog tags along through doors if it's close by when you go
-    // through one — otherwise it just stays behind in the room it's in.
-    if(dog.scene===player.scene && Math.hypot(player.x-dog.x, player.y-dog.y) < 140){
+    // Max tags along through any door as long as he's in the room you're
+    // leaving — he doesn't need to be right next to you, just somewhere
+    // in the same scene. Otherwise he stays behind in whatever room he's in.
+    if(dog.scene===player.scene){
       dog.scene = target;
       dog.x = Math.min(Math.max(spawn.x + (spawn.x < CANVAS_W/2 ? 44 : -44), 60), CANVAS_W-60);
       dog.y = spawn.y;
@@ -1070,12 +1093,19 @@
   // the closest-looking pose instead.
   const STATE_ANIM = {
     idle:'idle', sniff:'sniff', sit:'sit', lie:'lie', sleep:'sleep',
-    walk:'walk', goEat:'walk', goPlay:'walk', return:'walk',
-    eating:'sit', playing:'lie', fetching:'sit',
+    walk:'walk', goEat:'walk', goPlay:'walk', return:'walk', goBed:'walk',
+    eating:'sit', playing:'lie', fetching:'sit', inBed:'lie',
   };
   // States where dog.tx/ty is a walk target; everything else is stationary
   // and just waits out dog.stateUntil.
-  const TRAVEL_STATES = new Set(['walk','goEat','goPlay','return']);
+  const TRAVEL_STATES = new Set(['walk','goEat','goPlay','return','goBed']);
+  // All bed variants share the same native size, so the "lie down here"
+  // point is a fixed offset from the bed's top-left corner regardless of
+  // which color is equipped.
+  // Offset upward from the bed's visual center: Max's lie-down sprite has
+  // his body weight low in its frame, so anchoring him at the bed's true
+  // center made him read as sitting on the floor just in front of it.
+  const DOG_BED_CENTER = {x: DOG_BED_POS.x+57, y: DOG_BED_POS.y+12};
 
   function pickDogState(){
     const now = Date.now();
@@ -1149,6 +1179,15 @@
     dog.state='goEat'; dog.tx=ft.pos.x; dog.ty=ft.pos.y; dog.stateUntil=Date.now()+9000;
   }
 
+  // Sends Max to lie down on his bed — only works once you own one and
+  // he's actually in the bedroom to begin with.
+  function callDogToBed(){
+    if(!equipped.bed) return;
+    if(dog.scene!=='bedroom'){ showToast('Max needs to be in the bedroom for that!'); return; }
+    if(dog.state==='inBed'){ showToast('Max is already curled up on his bed!'); return; }
+    dog.state='goBed'; dog.tx=DOG_BED_CENTER.x; dog.ty=DOG_BED_CENTER.y; dog.stateUntil=Date.now()+9000;
+  }
+
   // Called when a travel state reaches its destination (or, as a safety
   // net, when its timeout runs out before it quite gets there).
   function dogArrived(){
@@ -1175,6 +1214,9 @@
       dog.isFetch = false;
       showToast('Max drops the ball at your feet! 🎾 Touch him to fetch again!');
       dog.state='idle'; dog.stateUntil=now+600;
+    } else if(dog.state==='goBed'){
+      dog.state='inBed'; dog.stateUntil=now+15000+Math.random()*10000;
+      showToast('Max curls up on his bed. 🛏️');
     }
   }
 
@@ -1269,6 +1311,17 @@
       interactRadius:70, promptLabel:'Call Max to Eat'};
   }
 
+  // Same idea as the food spot, but for the bed — only clickable once
+  // you've bought one, and only shows up in the bedroom.
+  function getBedSpotObj(){
+    if(!equipped.bed || player.scene!=='bedroom') return null;
+    const it = shopItemById[equipped.bed];
+    if(!it) return null;
+    return {type:'dogbedspot', x:DOG_BED_POS.x, y:DOG_BED_POS.y,
+      w:it.sw*DOG_BED_SCALE, h:it.sh*DOG_BED_SCALE,
+      interactRadius:70, promptLabel:'Send Max to Bed'};
+  }
+
   function updateInteractables(){
     const scene = SCENES[player.scene];
     let found = null, bestDist = Infinity;
@@ -1299,6 +1352,12 @@
       const fd = Math.hypot(player.x-fcx, player.y-fcy);
       if(fd < fs.interactRadius && fd < bestDist){ found=fs; bestDist=fd; }
     }
+    const bs = getBedSpotObj();
+    if(bs){
+      const bcx=bs.x+bs.w/2, bcy=bs.y+bs.h/2;
+      const bd = Math.hypot(player.x-bcx, player.y-bcy);
+      if(bd < bs.interactRadius && bd < bestDist){ found=bs; bestDist=bd; }
+    }
     nearbyObject = found;
 
     const promptEl = document.getElementById('interactPrompt');
@@ -1326,6 +1385,7 @@
     else if(obj.type==='petshop') openPetShop();
     else if(obj.type==='foodspot') callDogToEat();
     else if(obj.type==='puzzle') openPuzzle();
+    else if(obj.type==='dogbedspot') callDogToBed();
   }
 
   // ---------- Click / tap directly on something ----------
@@ -1346,6 +1406,8 @@
     if(player.scene===dog.scene && objectContainsPoint(dog, px, py)) return dog;
     const fs = getFoodSpotObj();
     if(fs && objectContainsPoint(fs, px, py)) return fs;
+    const bs = getBedSpotObj();
+    if(bs && objectContainsPoint(bs, px, py)) return bs;
     return null;
   }
   // Converts a page-space (clientX/clientY) point to the canvas's internal
@@ -1546,20 +1608,28 @@
     if(selectedIdx.length!==2) return;
     const [i1,i2] = selectedIdx;
     const id1 = inventory[i1], id2 = inventory[i2];
-    let result;
-    if(id1===id2){
-      result = TWIN_RESULTS[id1];
-    } else {
-      const key = [id1,id2].sort().join('+');
-      result = RECIPES[key] || {name:'Mysterious Trinket', emoji:'🧩', flavor:'Your tools hum and clatter... something new emerges!'};
-    }
     // remove the two used items (higher index first)
     [i1,i2].sort((a,b)=>b-a).forEach(i=>inventory.splice(i,1));
-    creations.push({name:result.name, emoji:result.emoji});
-    inventory.push('coin'); // every successful craft, any combination, is also worth a gold coin
     selectedIdx = [];
-    document.getElementById('craftResult').textContent = `${result.emoji} Crafted: ${result.name}! — ${result.flavor} (+1 🪙)`;
-    document.getElementById('creationCount').textContent = creations.length;
+
+    if(id1==='coin' && id2==='coin'){
+      // Merchant's Fortune doesn't become a trophy creation — it's straight
+      // gold, spendable at the Pet Shop like any other dug-up coin.
+      inventory.push('coin','coin','coin');
+      document.getElementById('craftResult').textContent = `💰 Merchant's Fortune! Two coins multiply into three — +3 🪙`;
+    } else {
+      let result;
+      if(id1===id2){
+        result = TWIN_RESULTS[id1];
+      } else {
+        const key = [id1,id2].sort().join('+');
+        result = RECIPES[key] || {name:'Mysterious Trinket', emoji:'🧩', flavor:'Your tools hum and clatter... something new emerges!'};
+      }
+      creations.push({name:result.name, emoji:result.emoji});
+      inventory.push('coin'); // every successful craft, any combination, is also worth a gold coin
+      document.getElementById('craftResult').textContent = `${result.emoji} Crafted: ${result.name}! — ${result.flavor} (+1 🪙)`;
+      document.getElementById('creationCount').textContent = creations.length;
+    }
     spawnCraftBurst();
     renderCrafting();
     updateCoinChip();
@@ -1644,10 +1714,12 @@
   // categories, plus a "default / none" option. Picking one updates
   // `equipped` immediately; drawScene reads it fresh every frame.
   const YARD_SLOTS = [
-    {select:'equipBowl', slot:'bowl',  categories:['Food Bowls'], defaultLabel:'Default — Green Food Bowl'},
-    {select:'equipHouse',slot:'house', categories:['Doghouses'],  defaultLabel:'Default — Brown Doghouse'},
-    {select:'equipFood', slot:'food',  categories:['Dog Food','Meat Treats'], defaultLabel:'— None (empty spot) —'},
-    {select:'equipToy',  slot:'toy',   categories:['Balls','Chew Bones','Collars','Rope Toys'], defaultLabel:'— None (empty spot) —'},
+    {select:'equipBowl',  slot:'bowl',   categories:['Food Bowls'], defaultLabel:'Default — Green Food Bowl'},
+    {select:'equipHouse', slot:'house',  categories:['Doghouses'],  defaultLabel:'Default — Brown Doghouse'},
+    {select:'equipFood',  slot:'food',   categories:['Dog Food','Meat Treats'], defaultLabel:'— None (empty spot) —'},
+    {select:'equipToy',   slot:'toy',    categories:['Balls','Chew Bones','Rope Toys'], defaultLabel:'— None (empty spot) —'},
+    {select:'equipCollar',slot:'collar', categories:['Collars'], defaultLabel:'— None —'},
+    {select:'equipBed',   slot:'bed',    categories:['Beds'], defaultLabel:'— None —'},
   ];
   function renderYardSetup(){
     YARD_SLOTS.forEach(({select, slot, categories, defaultLabel})=>{
@@ -1683,7 +1755,13 @@
     }
     inventory.splice(coinIdx,1);
     petInventory.push(item.id);
-    showToast(`Bought the ${item.name}! 🐾`);
+    // Your first bed goes straight into the bedroom — no dropdown needed.
+    if(item.category==='Beds' && !equipped.bed){
+      equipped.bed = item.id;
+      showToast(`Bought the ${item.name}! 🐾 It's set up in the bedroom.`);
+    } else {
+      showToast(`Bought the ${item.name}! 🐾`);
+    }
     renderPetShop();
     updateCoinChip();
   }
@@ -2005,13 +2083,13 @@
       if(Date.now()-GAME_START_TIME < BONE_LIFETIME_MS){
         drawSpriteAt(DEFAULT_BONE, BONE_POS.x, BONE_POS.y, 1.6);
       }
-      if(foodTarget && foodTarget.scene==='outside' && shopItemById[equipped.food]){
-        drawSpriteAt(shopItemById[equipped.food], FOOD_SPOT.x, FOOD_SPOT.y, 2.2);
-      }
       if(equipped.toy && shopItemById[equipped.toy]){
         const pos = getToyRenderPos();
         drawSpriteAt(shopItemById[equipped.toy], pos.x, pos.y, 2.2);
       }
+    }
+    if(player.scene==='bedroom' && equipped.bed && shopItemById[equipped.bed]){
+      drawSpriteAt(shopItemById[equipped.bed], DOG_BED_POS.x, DOG_BED_POS.y, DOG_BED_SCALE);
     }
 
     if(player.scene===dog.scene) drawDog();
@@ -2220,6 +2298,27 @@
         -dog.size/2, -dog.size/2, dog.size, dog.size);
       ctx.restore();
     }
+
+    // Collars are worn, not placed as a toy — a colored band with a
+    // dangling tag, roughly at the neck (approximate: the sprites don't
+    // have a dedicated collar layer to swap in).
+    if(equipped.collar){
+      const color = COLLAR_COLORS[equipped.collar] || '#333';
+      ctx.save();
+      ctx.translate(dog.x, dog.y);
+      ctx.scale(dog.facing, 1);
+      const bw = dog.size*0.12, bh = dog.size*0.07;
+      const bx = dog.size*0.10, by = dog.size*0.08;
+      ctx.fillStyle = color;
+      ctx.fillRect(bx-bw/2, by-bh/2, bw, bh);
+      ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1;
+      ctx.strokeRect(bx-bw/2, by-bh/2, bw, bh);
+      ctx.beginPath();
+      ctx.arc(bx, by+bh/2+dog.size*0.03, dog.size*0.035, 0, Math.PI*2);
+      ctx.fillStyle = '#ffd54a';
+      ctx.fill();
+      ctx.restore();
+    }
     unglow(dog);
   }
 
@@ -2239,11 +2338,49 @@
   }
 
   // ---------- Loop ----------
+  // A small always-current overview of the yard: every dig mound as a dot,
+  // with a gold dot for the guaranteed-coin spots — offset to the side so
+  // it doesn't sit right on top of the mound dot underneath it — plus your
+  // own position. Only makes sense to show while you're actually outside.
+  const miniMap = document.getElementById('miniMap');
+  const miniMapCtx = miniMap.getContext('2d');
+  function drawMiniMap(){
+    if(player.scene!=='outside'){ miniMap.style.display = 'none'; return; }
+    miniMap.style.display = 'block';
+    const MW = miniMap.width, MH = miniMap.height;
+    const sx = MW/CANVAS_W, sy = MH/CANVAS_H;
+    miniMapCtx.clearRect(0,0,MW,MH);
+    miniMapCtx.fillStyle = 'rgba(15,26,10,.88)';
+    miniMapCtx.fillRect(0,0,MW,MH);
+
+    for(const obj of SCENES.outside.objects){
+      if(obj.type!=='dig') continue;
+      const mx = (obj.x+obj.w/2)*sx, my = (obj.y+obj.h/2)*sy;
+      miniMapCtx.beginPath();
+      miniMapCtx.arc(mx, my, 2.2, 0, Math.PI*2);
+      miniMapCtx.fillStyle = '#8f6238';
+      miniMapCtx.fill();
+      if(obj.guaranteedCoin){
+        // offset so the coin marker doesn't land right on top of the mound
+        miniMapCtx.beginPath();
+        miniMapCtx.arc(mx+4, my-4, 2, 0, Math.PI*2);
+        miniMapCtx.fillStyle = '#ffd54a';
+        miniMapCtx.fill();
+      }
+    }
+
+    miniMapCtx.beginPath();
+    miniMapCtx.arc(player.x*sx, player.y*sy, 2.6, 0, Math.PI*2);
+    miniMapCtx.fillStyle = '#7ad4ff';
+    miniMapCtx.fill();
+  }
+
   function loop(){
     updatePlayer();
     updateDog();
     updateInteractables();
     drawScene();
+    drawMiniMap();
     requestAnimationFrame(loop);
   }
   document.getElementById('roomName').textContent = SCENES[player.scene].name;
