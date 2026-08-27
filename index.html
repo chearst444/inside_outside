@@ -245,6 +245,26 @@
     margin-top:10px; text-align:center; font-size:14px; min-height:20px; color:#bfe9c8;
   }
 
+  /* sliding puzzle */
+  #puzzlePanel{ width:320px; text-align:center; }
+  #puzzleGrid{
+    display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+    gap:6px; width:100%; max-width:240px; aspect-ratio:1;
+    margin:14px auto 0;
+  }
+  .puzzleTile{
+    background:#33384a; border:1px solid rgba(255,255,255,.2); border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:800; color:#eee; cursor:pointer;
+    user-select:none; transition:background .15s;
+  }
+  .puzzleTile:hover{ background:#3d4459; }
+  .puzzleTile.empty{ background:transparent; border:1px dashed rgba(255,255,255,.15); cursor:default; }
+  .puzzleTile.solved{ background:#2e4a2e; border-color:#7cd67c; color:#bfe9c8; }
+  #puzzleResult{
+    margin-top:12px; text-align:center; font-size:14px; min-height:20px; color:#bfe9c8;
+  }
+
   /* meal */
   #mealOverlay{
     position:absolute; inset:0;
@@ -312,6 +332,26 @@
     .craftCols{ flex-direction:column; gap:14px; }
   }
 
+  /* Max's popup menu — a small context menu that floats right over him
+     (positioned in % of the canvas so it tracks his position at any
+     screen size), instead of a full centered modal. */
+  #dogMenu{
+    position:absolute;
+    transform:translate(-50%,-115%);
+    background:#20222b; border:1px solid rgba(255,255,255,.25);
+    border-radius:10px; padding:8px; display:flex; gap:6px;
+    box-shadow:0 8px 24px rgba(0,0,0,.5);
+    z-index:25; pointer-events:auto;
+  }
+  #dogMenu.hidden{ display:none; }
+  #dogMenu button{
+    background:#33384a; color:#eee; border:1px solid rgba(255,255,255,.2);
+    border-radius:8px; padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer;
+    white-space:nowrap; display:flex; align-items:center; gap:4px;
+  }
+  #dogMenu button:hover{ background:#3d4459; }
+  #dogMenu button:disabled{ opacity:.4; cursor:not-allowed; }
+
   /* Short landscape phones: the start screen's copy is the tallest panel
      in the game, so trim it first — .panel's own overflow-y:auto is the
      fallback if it still doesn't fit. */
@@ -350,6 +390,11 @@
 
   <div id="interactPrompt"><kbd>E</kbd><span id="promptText"></span></div>
 
+  <div id="dogMenu" class="hidden">
+    <button id="dogMenuPet">🐕 Pet</button>
+    <button id="dogMenuFetch">🎾 Fetch</button>
+  </div>
+
   <div id="toasts"></div>
 
   <div id="touchControls">
@@ -366,9 +411,10 @@
   <div class="overlay" id="startOverlay">
     <div class="panel" id="startPanel">
       <h1>🏡 Inside/Outside</h1>
-      <p>Explore the yard and dig up buried treasures, then bring them home.
-      Check the kitchen calendar, play with the toys in your bedroom, and use your
-      <b>Restoration Workbench</b> to craft the treasures into skillfully restored creations!</p>
+      <p>Explore the yard and dig up buried treasures and gold coins, then bring them home.
+      Check the kitchen calendar, play the sliding puzzle and a game of Pong in your bedroom, and use your
+      <b>Restoration Workbench</b> to craft treasures into creations — every craft is worth a coin too!
+      Touch your dog <b>Max</b> to pet him or send him fetching, and spend your coins at the yard's <b>Pet Shop</b>.</p>
       <div class="keys" id="keyboardHint">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows<br>Move</div>
         <div><kbd>E</kbd><br>Interact</div>
@@ -434,11 +480,11 @@
       <div id="shopCatalog"></div>
 
       <h3 class="shopCollectionHeading">Yard Setup</h3>
-      <div class="sub" style="margin-bottom:10px;">Swap in anything you own — the dog eats what's on the food spot and plays (fetch, for balls!) with whatever's on the toy spot.</div>
+      <div class="sub" style="margin-bottom:10px;">Swap in anything you own. Max eats whatever's set below (meat treats go in the kitchen bowl — bring him inside first; dog food goes out at his yard spot) and plays with whatever's on the toy spot. Touch Max any time you own a ball to fetch — it doesn't need to be placed here.</div>
       <div id="yardSetup">
         <label>Food Bowl (kitchen) <select id="equipBowl"></select></label>
         <label>Doghouse (yard) <select id="equipHouse"></select></label>
-        <label>Food Spot (yard) <select id="equipFood"></select></label>
+        <label>Food (bowl or yard spot) <select id="equipFood"></select></label>
         <label>Toy Spot (yard) <select id="equipToy"></select></label>
       </div>
 
@@ -447,14 +493,25 @@
     </div>
   </div>
 
-  <!-- Mini race modal -->
+  <!-- Mini Pong modal -->
   <div class="overlay hidden" id="raceOverlay">
     <div class="panel" id="racePanel">
       <span class="closeBtn" id="raceCloseBtn" style="pointer-events:auto;">Close ✕</span>
-      <h2>🏎️ Quick Race</h2>
-      <div class="sub">Drag up/down to dodge — reach the finish line!</div>
+      <h2>🏓 Pong</h2>
+      <div class="sub">Drag up/down to move your paddle — keep the rally going 5 seconds for a coin!</div>
       <canvas id="raceCanvas" width="380" height="170"></canvas>
       <div id="raceResult"></div>
+    </div>
+  </div>
+
+  <!-- Puzzle modal -->
+  <div class="overlay hidden" id="puzzleOverlay">
+    <div class="panel" id="puzzlePanel">
+      <span class="closeBtn" id="puzzleCloseBtn" style="pointer-events:auto;">Close ✕</span>
+      <h2>🧩 Sliding Puzzle</h2>
+      <div class="sub">Slide the tiles into order, 1 to 8. Keep playing for 5 seconds for a coin!</div>
+      <div id="puzzleGrid"></div>
+      <div id="puzzleResult"></div>
     </div>
   </div>
 </div>
@@ -637,12 +694,13 @@
     'The yoyo spins on its string!',
     'The ball bounces out of the way!'
   ];
+  const DOG_NAME = 'Max';
   const DOG_FLAVORS = [
-    "The dog's tail wags furiously!",
-    'Woof! The dog barks happily.',
-    'The dog leans into the pets, tongue out.',
-    'The dog gives your hand a big lick.',
-    'The dog does a happy little spin!',
+    "Max's tail wags furiously!",
+    'Woof! Max barks happily.',
+    'Max leans into the pets, tongue out.',
+    'Max gives your hand a big lick.',
+    'Max does a happy little spin!',
   ];
 
   // ---------- Scenes ----------
@@ -699,7 +757,7 @@
         toyObj(300,150,'🧸','#ff9f7a','toy1'),
         raceBallObj(390,230),
         toyObj(270,320,'🚗','#ffe27a','toy3'),
-        toyObj(430,360,'🧩','#a6ff7a','toy4'),
+        puzzleToyObj(430,360),
         toyObj(340,440,'🪀','#ff7ac6','toy5'),
         toolBenchObj(680,380),
       ]
@@ -724,6 +782,10 @@
     return {id, type:'toy', x,y, w:34,h:34, triggerRadius:34, emoji, color,
       bounceUntil:0, lastTrigger:0};
   }
+  function puzzleToyObj(x,y){
+    return {id:'toy4', type:'puzzle', x,y, w:34,h:34, interactRadius:56,
+      promptLabel:'Play the Puzzle'};
+  }
   function toolBenchObj(x,y){
     return {id:'toolbench', type:'toolbench', x,y, w:160,h:130, interactRadius:95,
       promptLabel:'Use the Restoration Workbench'};
@@ -738,7 +800,7 @@
   }
   function raceBallObj(x,y){
     return {id:'toy2', type:'raceball', x,y, w:36,h:36, interactRadius:58,
-      promptLabel:'Play a Quick Race'};
+      promptLabel:'Play Pong'};
   }
   function petShopStandObj(x,y){
     return {id:'petshop', type:'petshop', x,y, w:140,h:90, interactRadius:100,
@@ -757,7 +819,8 @@
     tx:520, ty:380,
     barkUntil:0,
     isFetch:false, // true only while chasing down a ball you actually threw (vs. ambient play)
-    interactRadius:70, promptLabel:'Pet the Dog',
+    throwTime:0,
+    interactRadius:70, promptLabel:'Play with Max',
   };
   let ballThrowPos = null; // where a thrown ball currently sits/is being carried; null = ball's at rest on the toy spot
   const keys = {};
@@ -775,11 +838,22 @@
   const KITCHEN_BOWL_POS = {x:700, y:150};
   const HOUSE_POS = {x:55,  y:220};
   const BONE_POS  = {x:165, y:275};
-  const FOOD_SPOT = {x:250, y:200}; // the dog walks here to eat, if equipped.food is set
+  const FOOD_SPOT = {x:250, y:200}; // Dog Food walks here to be eaten, out in the yard
   const TOY_SPOT  = {x:600, y:350}; // the dog walks here to play/fetch, if equipped.toy is set
   const DEFAULT_BOWL  = {sheet:'bowls',  sx:0,sy:0, sw:16,sh:16, name:'Green Food Bowl'};
   const DEFAULT_HOUSE = {sheet:'houses', sx:0,sy:0, sw:96,sh:96, name:'Brown Doghouse'};
   const DEFAULT_BONE  = {sheet:'bones',  sx:0,sy:0, sw:32,sh:32, name:'Bone'};
+  const GAME_START_TIME = Date.now();
+  const BONE_LIFETIME_MS = 5*60*1000; // the starter bone by the doghouse disappears after 5 minutes of play
+
+  // Meat Treats go in the kitchen bowl (Max has to be inside to eat them);
+  // Dog Food goes out at the yard's food spot. Returns null with nothing set.
+  function getFoodTarget(){
+    const it = shopItemById[equipped.food];
+    if(!it) return null;
+    if(it.category==='Meat Treats') return {pos:KITCHEN_BOWL_POS, scene:'kitchen'};
+    return {pos:FOOD_SPOT, scene:'outside'};
+  }
   function spriteDescFor(slot, defaultDesc){
     const id = equipped[slot];
     return (id && shopItemById[id]) ? shopItemById[id] : defaultDesc;
@@ -908,6 +982,7 @@
   document.getElementById('craftCloseBtn').addEventListener('click', closeAllModals);
   document.getElementById('raceCloseBtn').addEventListener('click', closeAllModals);
   document.getElementById('petShopCloseBtn').addEventListener('click', closeAllModals);
+  document.getElementById('puzzleCloseBtn').addEventListener('click', closeAllModals);
   modalOpen = true; // start screen counts as a modal until dismissed
 
   function closeAllModals(){
@@ -916,6 +991,8 @@
     document.getElementById('startOverlay').classList.add('hidden');
     document.getElementById('raceOverlay').classList.add('hidden');
     document.getElementById('petShopOverlay').classList.add('hidden');
+    document.getElementById('puzzleOverlay').classList.add('hidden');
+    document.getElementById('dogMenu').classList.add('hidden');
     raceActive = false;
     modalOpen = false;
   }
@@ -1005,9 +1082,9 @@
     // If there's food or a toy out, the dog occasionally wanders over to it
     // on its own — on top of you being able to call it over directly by
     // clicking the food spot, or clicking the dog itself to throw a ball.
-    // Both are yard fixtures, so this only applies while the dog is outside.
-    if(dog.scene==='outside' && equipped.food && Math.random()<0.16){
-      dog.state='goEat'; dog.tx=FOOD_SPOT.x; dog.ty=FOOD_SPOT.y; dog.stateUntil=now+9000;
+    const foodTarget = getFoodTarget();
+    if(foodTarget && dog.scene===foodTarget.scene && Math.random()<0.16){
+      dog.state='goEat'; dog.tx=foodTarget.pos.x; dog.ty=foodTarget.pos.y; dog.stateUntil=now+9000;
       return;
     }
     if(dog.scene==='outside' && equipped.toy && Math.random()<0.18){
@@ -1027,8 +1104,8 @@
     else { dog.state='sleep'; dog.stateUntil=now+6000+Math.random()*4000; }
   }
 
-  // You have to actually own a ball for this — thrown from wherever the
-  // dog currently is, landing somewhere out in the yard for it to chase.
+  // You have to actually own a ball for this — thrown from wherever Max
+  // currently is, landing somewhere out in the yard for him to chase.
   function throwBall(){
     const it = shopItemById[equipped.toy];
     if(!it) return;
@@ -1038,26 +1115,38 @@
     const ty = Math.min(Math.max(dog.y+Math.sin(angle)*dist, 200), CANVAS_H-60);
     ballThrowPos = {x:tx, y:ty};
     dog.isFetch = true;
+    dog.throwTime = Date.now();
     dog.state = 'goPlay'; dog.tx = tx; dog.ty = ty; dog.stateUntil = Date.now()+9000;
     showToast(`You throw the ${it.name}!`);
   }
 
-  // Where to draw the toy: lying where it's at rest, lying where a thrown
-  // ball landed, or riding along with the dog while it's being carried back.
+  // Where to draw the toy: lying where it's at rest, bouncing to a stop
+  // where a thrown ball landed, or riding along with Max while it's being
+  // carried back.
   function getToyRenderPos(){
     if(dog.isFetch && ballThrowPos){
-      if(dog.state==='goPlay') return ballThrowPos;
+      if(dog.state==='goPlay'){
+        const t = (Date.now()-dog.throwTime)/1000;
+        const bounce = Math.abs(Math.sin(t*7)) * Math.max(0, 16-t*13);
+        return {x:ballThrowPos.x, y:ballThrowPos.y-bounce};
+      }
       if(dog.state==='fetching' || dog.state==='return') return {x:dog.x-6, y:dog.y-6};
     }
     return TOY_SPOT;
   }
 
-  // Calls the dog straight over to eat, instead of waiting for it to wander
-  // there on its own.
+  // Calls Max straight over to eat, instead of waiting for him to wander
+  // there on his own. Meat treats need him inside; dog food needs him out
+  // in the yard — he can only be called from the room he's actually in.
   function callDogToEat(){
-    if(!equipped.food) return;
-    if(dog.state==='eating'){ showToast('The dog is already eating!'); return; }
-    dog.state='goEat'; dog.tx=FOOD_SPOT.x; dog.ty=FOOD_SPOT.y; dog.stateUntil=Date.now()+9000;
+    const ft = getFoodTarget();
+    if(!ft) return;
+    if(dog.scene!==ft.scene){
+      showToast(ft.scene==='kitchen' ? "Max needs to be inside for that!" : "Max needs to be outside for that!");
+      return;
+    }
+    if(dog.state==='eating'){ showToast('Max is already eating!'); return; }
+    dog.state='goEat'; dog.tx=ft.pos.x; dog.ty=ft.pos.y; dog.stateUntil=Date.now()+9000;
   }
 
   // Called when a travel state reaches its destination (or, as a safety
@@ -1069,22 +1158,22 @@
     } else if(dog.state==='goEat'){
       dog.state='eating'; dog.stateUntil=now+2200;
       const it = shopItemById[equipped.food];
-      showToast(`Yum! The dog gulps down the ${it ? it.name : 'food'}!`);
+      showToast(`Yum! Max gulps down the ${it ? it.name : 'food'}!`);
       spawnHeartBurst(dog.x, dog.y-dog.size*0.5);
     } else if(dog.state==='goPlay'){
       const it = shopItemById[equipped.toy];
       if(dog.isFetch && it && it.category==='Balls'){
         dog.state='fetching'; dog.stateUntil=now+900;
-        showToast(`The dog grabs the ${it.name}!`);
+        showToast(`Max grabs the ${it.name}!`);
       } else {
         dog.state='playing'; dog.stateUntil=now+2600;
-        showToast(`The dog plays happily with the ${it ? it.name : 'toy'}!`);
+        showToast(`Max plays happily with the ${it ? it.name : 'toy'}!`);
         spawnHeartBurst(dog.x, dog.y-dog.size*0.5);
       }
     } else if(dog.state==='return'){
       ballThrowPos = null;
       dog.isFetch = false;
-      showToast('The dog drops the ball at your feet! 🎾 Click it again to throw!');
+      showToast('Max drops the ball at your feet! 🎾 Touch him to fetch again!');
       dog.state='idle'; dog.stateUntil=now+600;
     }
   }
@@ -1102,6 +1191,7 @@
   }
 
   function updateDog(){
+    if(modalOpen) return; // frozen in place while his popup menu (or any other modal) is open
     if(player.scene!==dog.scene) return; // only simulated while you're in the same room as it
     const now = Date.now();
     if(now < dog.barkUntil){ setDogAnim('bark'); return; }
@@ -1121,13 +1211,6 @@
     }
 
     setDogAnim(STATE_ANIM[dog.state] || 'idle');
-
-    // The interact prompt doubles as a hint: it only offers to throw the
-    // ball when there's actually one out and the dog isn't already fetching.
-    const toy = shopItemById[equipped.toy];
-    const canThrow = dog.scene==='outside' && toy && toy.category==='Balls'
-      && dog.state!=='goPlay' && dog.state!=='fetching' && dog.state!=='return';
-    dog.promptLabel = canThrow ? 'Throw the Ball' : 'Pet the Dog';
   }
 
   function petDog(){
@@ -1138,30 +1221,52 @@
     showToast(DOG_FLAVORS[Math.floor(Math.random()*DOG_FLAVORS.length)]);
   }
 
-  // Clicking/tapping the dog throws the ball for it to fetch, if you've got
-  // one equipped and it isn't already off chasing one down — otherwise it's
-  // just a pet.
-  function handleDogClick(){
-    const it = shopItemById[equipped.toy];
-    const ballReady = dog.scene==='outside' && it && it.category==='Balls';
+  // ---------- Max's popup menu (Pet / Fetch) ----------
+  // Touching Max always opens this instead of acting immediately — Fetch is
+  // enabled as soon as you own ANY ball from the Pet Shop (it doesn't need
+  // to already be the yard's placed toy; picking Fetch places it there).
+  function openDogMenu(){
+    modalOpen = true;
+    const menu = document.getElementById('dogMenu');
+    menu.style.left = (dog.x/CANVAS_W*100) + '%';
+    menu.style.top = (dog.y/CANVAS_H*100) + '%';
+    const ownsBall = petInventory.some(id => shopItemById[id] && shopItemById[id].category==='Balls');
     const busyFetching = dog.state==='goPlay' || dog.state==='fetching' || dog.state==='return';
-    if(ballReady && !busyFetching){
-      throwBall();
-    } else if(ballReady && busyFetching){
-      showToast("The dog's already after the ball!");
-    } else {
-      petDog();
-    }
+    const fetchBtn = document.getElementById('dogMenuFetch');
+    fetchBtn.disabled = !ownsBall || dog.scene!=='outside' || busyFetching;
+    fetchBtn.title = !ownsBall ? 'Buy a ball from the Pet Shop first'
+      : dog.scene!=='outside' ? 'Max needs to be outside to fetch'
+      : busyFetching ? "Max is already after the ball" : '';
+    menu.classList.remove('hidden');
   }
+  function closeDogMenu(){
+    document.getElementById('dogMenu').classList.add('hidden');
+    modalOpen = false;
+  }
+  document.getElementById('dogMenuPet').addEventListener('click', ()=>{
+    closeDogMenu();
+    petDog();
+  });
+  document.getElementById('dogMenuFetch').addEventListener('click', ()=>{
+    closeDogMenu();
+    const ballId = (equipped.toy && shopItemById[equipped.toy] && shopItemById[equipped.toy].category==='Balls')
+      ? equipped.toy
+      : petInventory.find(id => shopItemById[id] && shopItemById[id].category==='Balls');
+    if(!ballId) return;
+    equipped.toy = ballId; // whichever ball you fetch with becomes the yard's placed toy
+    throwBall();
+  });
 
   // The food spot only exists as a clickable/nearby thing while food is
-  // actually equipped — its box is sized to whatever item is placed there.
+  // actually equipped — its box is sized to whatever item is placed there,
+  // and it only shows up in the room that item is actually placed in.
   function getFoodSpotObj(){
+    const ft = getFoodTarget();
+    if(!ft || ft.scene!==player.scene) return null;
     const it = shopItemById[equipped.food];
-    if(!it) return null;
     const scale = 2.2;
-    return {type:'foodspot', x:FOOD_SPOT.x, y:FOOD_SPOT.y, w:it.sw*scale, h:it.sh*scale,
-      interactRadius:70, promptLabel:'Call the Dog to Eat'};
+    return {type:'foodspot', x:ft.pos.x, y:ft.pos.y, w:it.sw*scale, h:it.sh*scale,
+      interactRadius:70, promptLabel:'Call Max to Eat'};
   }
 
   function updateInteractables(){
@@ -1188,13 +1293,11 @@
       const d = Math.hypot(player.x-dog.x, player.y-dog.y);
       if(d < dog.interactRadius && d < bestDist){ found=dog; bestDist=d; }
     }
-    if(player.scene==='outside'){
-      const fs = getFoodSpotObj();
-      if(fs){
-        const fcx=fs.x+fs.w/2, fcy=fs.y+fs.h/2;
-        const fd = Math.hypot(player.x-fcx, player.y-fcy);
-        if(fd < fs.interactRadius && fd < bestDist){ found=fs; bestDist=fd; }
-      }
+    const fs = getFoodSpotObj();
+    if(fs){
+      const fcx=fs.x+fs.w/2, fcy=fs.y+fs.h/2;
+      const fd = Math.hypot(player.x-fcx, player.y-fcy);
+      if(fd < fs.interactRadius && fd < bestDist){ found=fs; bestDist=fd; }
     }
     nearbyObject = found;
 
@@ -1219,9 +1322,10 @@
     else if(obj.type==='bed') takeNap();
     else if(obj.type==='table') takeMeal();
     else if(obj.type==='raceball') openRace();
-    else if(obj.type==='dog') handleDogClick();
+    else if(obj.type==='dog') openDogMenu();
     else if(obj.type==='petshop') openPetShop();
     else if(obj.type==='foodspot') callDogToEat();
+    else if(obj.type==='puzzle') openPuzzle();
   }
 
   // ---------- Click / tap directly on something ----------
@@ -1240,10 +1344,8 @@
       if(objectContainsPoint(obj, px, py)) return obj;
     }
     if(player.scene===dog.scene && objectContainsPoint(dog, px, py)) return dog;
-    if(player.scene==='outside'){
-      const fs = getFoodSpotObj();
-      if(fs && objectContainsPoint(fs, px, py)) return fs;
-    }
+    const fs = getFoodSpotObj();
+    if(fs && objectContainsPoint(fs, px, py)) return fs;
     return null;
   }
   // Converts a page-space (clientX/clientY) point to the canvas's internal
@@ -1454,8 +1556,9 @@
     // remove the two used items (higher index first)
     [i1,i2].sort((a,b)=>b-a).forEach(i=>inventory.splice(i,1));
     creations.push({name:result.name, emoji:result.emoji});
+    inventory.push('coin'); // every successful craft, any combination, is also worth a gold coin
     selectedIdx = [];
-    document.getElementById('craftResult').textContent = `${result.emoji} Crafted: ${result.name}! — ${result.flavor}`;
+    document.getElementById('craftResult').textContent = `${result.emoji} Crafted: ${result.name}! — ${result.flavor} (+1 🪙)`;
     document.getElementById('creationCount').textContent = creations.length;
     spawnCraftBurst();
     renderCrafting();
@@ -1625,30 +1728,32 @@
     }, 1800);
   }
 
-  // ---------- Mini Race (soccer ball) ----------
-  // Horizontal track (wide, short) so it fits a landscape phone without
-  // scrolling: the car sits near the left edge, obstacles scroll in from
-  // the right, and dragging up/down changes lanes.
-  const RACE_W = 380, RACE_H = 170, RACE_DURATION = 6000; // a very short, ~6s race
-  const RACE_CAR_X = 46;
+  // ---------- Mini Pong (soccer ball) ----------
+  // Same modal/canvas the old car-dodge race used. You run the left
+  // paddle (drag up/down); the ball bounces off the right wall and back.
+  // Keep the rally alive for 5 straight seconds without missing -> a coin.
+  const RACE_W = 380, RACE_H = 170;
+  const PONG_PADDLE_X = 22, PONG_PADDLE_H = 44;
   const raceCanvas = document.getElementById('raceCanvas');
   const raceCtx = raceCanvas.getContext('2d');
   const raceResultEl = document.getElementById('raceResult');
   let raceActive = false;
-  let raceCar = { y: RACE_H/2 };
-  let raceObstacles = [];
-  let raceStartTime = 0;
-  let raceFinished = false;
-  let raceCrashed = false;
+  let raceCar = { y: RACE_H/2 }; // the paddle's y position
+  let pongBall = { x: RACE_W/2, y: RACE_H/2, vx: 2.6, vy: 1.6 };
+  let pongMissed = false;
+  let pongMissedUntil = 0;
+  let pongRallyStart = 0;
+  let pongCoinAwarded = false;
   let raceDragging = false;
 
   function openRace(){
     modalOpen = true;
     raceCar.y = RACE_H/2;
-    raceObstacles = [];
-    raceStartTime = Date.now();
-    raceFinished = false;
-    raceCrashed = false;
+    pongBall = { x: RACE_W/2, y: 40+Math.random()*(RACE_H-80), vx: 2.6, vy: (Math.random()<0.5?-1:1)*1.8 };
+    pongMissed = false;
+    pongMissedUntil = 0;
+    pongRallyStart = Date.now();
+    pongCoinAwarded = false;
     raceResultEl.textContent = '';
     document.getElementById('raceOverlay').classList.remove('hidden');
     raceActive = true;
@@ -1674,69 +1779,159 @@
 
   function raceLoop(){
     if(!raceActive) return;
-    const elapsed = Date.now()-raceStartTime;
-    const progress = Math.min(1, elapsed/RACE_DURATION);
-    const racing = !raceFinished && !raceCrashed;
+    const now = Date.now();
 
-    if(racing && Math.random() < 0.035){
-      raceObstacles.push({y: 30+Math.random()*(RACE_H-60), x: RACE_W+20});
-    }
-    if(racing){
-      for(const o of raceObstacles) o.x -= 4.6;
-    }
-    raceObstacles = raceObstacles.filter(o=>o.x > -30);
-
-    if(racing){
-      for(const o of raceObstacles){
-        if(Math.abs(o.x-RACE_CAR_X) < 20 && Math.abs(o.y-raceCar.y) < 20){
-          raceCrashed = true;
-          raceResultEl.textContent = '💥 Crashed! Tap Close and hop back in to try again.';
+    if(pongMissed){
+      if(now >= pongMissedUntil){
+        pongMissed = false;
+        pongBall = { x: RACE_W/2, y: 40+Math.random()*(RACE_H-80), vx: 2.6, vy: (Math.random()<0.5?-1:1)*1.8 };
+        pongRallyStart = now;
+        raceResultEl.textContent = '';
+      }
+    } else {
+      pongBall.x += pongBall.vx;
+      pongBall.y += pongBall.vy;
+      if(pongBall.y < 8 || pongBall.y > RACE_H-8) pongBall.vy *= -1;
+      if(pongBall.x > RACE_W-10){ pongBall.x = RACE_W-10; pongBall.vx *= -1; } // right wall
+      if(pongBall.x <= PONG_PADDLE_X+8){
+        if(Math.abs(pongBall.y-raceCar.y) < PONG_PADDLE_H/2+8){
+          pongBall.x = PONG_PADDLE_X+8;
+          pongBall.vx = Math.abs(pongBall.vx) * 1.03; // a little faster with every return
+          pongBall.vy += (pongBall.y-raceCar.y)/40; // steer the return with where it hit the paddle
+        } else if(pongBall.x < 0){
+          pongMissed = true;
+          pongMissedUntil = now + 900;
+          raceResultEl.textContent = '💨 Missed! Serving again...';
         }
       }
-    }
-    if(racing && progress>=1){
-      raceFinished = true;
-      raceResultEl.textContent = '🏁 You finished the race!';
+      const rally = now - pongRallyStart;
+      if(!pongCoinAwarded && rally >= 5000){
+        pongCoinAwarded = true;
+        inventory.push('coin');
+        updateCoinChip();
+        raceResultEl.textContent = '🏓 Great rally! +1 🪙';
+      }
     }
 
-    drawRaceFrame(progress);
-
-    if(!raceFinished && !raceCrashed) requestAnimationFrame(raceLoop);
-    else raceActive = false;
+    drawRaceFrame();
+    requestAnimationFrame(raceLoop);
   }
 
-  function drawRaceFrame(progress){
+  function drawRaceFrame(){
     raceCtx.clearRect(0,0,RACE_W,RACE_H);
     raceCtx.fillStyle = '#2b2f38';
     raceCtx.fillRect(0,0,RACE_W,RACE_H);
 
-    // scrolling center dashes for a sense of forward motion
+    // center dashed net
     raceCtx.strokeStyle = 'rgba(255,255,255,.35)';
-    raceCtx.lineWidth = 4;
-    raceCtx.setLineDash([18,14]);
-    raceCtx.lineDashOffset = (Date.now()/8) % 32;
+    raceCtx.lineWidth = 3;
+    raceCtx.setLineDash([10,8]);
     raceCtx.beginPath();
-    raceCtx.moveTo(0, RACE_H/2);
-    raceCtx.lineTo(RACE_W, RACE_H/2);
+    raceCtx.moveTo(RACE_W/2, 0);
+    raceCtx.lineTo(RACE_W/2, RACE_H);
     raceCtx.stroke();
     raceCtx.setLineDash([]);
 
-    // progress bar
+    // rally-progress bar toward the 5s reward
+    const rally = Math.min(1, (Date.now()-pongRallyStart)/5000);
     raceCtx.fillStyle = 'rgba(255,255,255,.15)';
-    raceCtx.fillRect(10,10,RACE_W-20,8);
-    raceCtx.fillStyle = '#7cd67c';
-    raceCtx.fillRect(10,10,(RACE_W-20)*progress,8);
+    raceCtx.fillRect(10,10,RACE_W-20,6);
+    raceCtx.fillStyle = pongCoinAwarded ? '#ffd54a' : '#7cd67c';
+    raceCtx.fillRect(10,10,(RACE_W-20)*(pongCoinAwarded?1:rally),6);
 
-    raceCtx.font='22px serif'; raceCtx.textAlign='center'; raceCtx.textBaseline='middle';
-    for(const o of raceObstacles) raceCtx.fillText('🚧', o.x, o.y);
+    // paddle
+    raceCtx.fillStyle = '#e0c37a';
+    raceCtx.fillRect(PONG_PADDLE_X-4, raceCar.y-PONG_PADDLE_H/2, 8, PONG_PADDLE_H);
 
-    raceCtx.font='26px serif';
-    raceCtx.fillText(raceCrashed ? '💥' : '🏎️', RACE_CAR_X, raceCar.y);
-
-    if(raceFinished){
-      raceCtx.font='bold 20px sans-serif'; raceCtx.fillStyle='#fff';
-      raceCtx.fillText('🏁 FINISH!', RACE_W/2, RACE_H/2);
+    // ball
+    if(!pongMissed){
+      raceCtx.beginPath();
+      raceCtx.arc(pongBall.x, pongBall.y, 6, 0, Math.PI*2);
+      raceCtx.fillStyle = '#fff';
+      raceCtx.fill();
     }
+  }
+
+  // ---------- Puzzle (bedroom puzzle piece) ----------
+  // Classic 8-puzzle: click a tile next to the blank to slide it. Shuffled
+  // by replaying random legal moves from the solved state, so it's always
+  // solvable. Keep making moves for 5 seconds -> a coin (once per opening).
+  let puzzleTiles = [];
+  let puzzleStartTime = 0;
+  let puzzleMoves = 0;
+  let puzzleCoinAwarded = false;
+  let puzzleSolved = false;
+
+  function puzzleNeighbors(idx){
+    const r = Math.floor(idx/3), c = idx%3;
+    const out = [];
+    if(r>0) out.push(idx-3);
+    if(r<2) out.push(idx+3);
+    if(c>0) out.push(idx-1);
+    if(c<2) out.push(idx+1);
+    return out;
+  }
+  function shufflePuzzle(){
+    const tiles = [1,2,3,4,5,6,7,8,0];
+    let blankIdx = 8;
+    for(let i=0;i<150;i++){
+      const options = puzzleNeighbors(blankIdx);
+      const swapIdx = options[Math.floor(Math.random()*options.length)];
+      [tiles[blankIdx], tiles[swapIdx]] = [tiles[swapIdx], tiles[blankIdx]];
+      blankIdx = swapIdx;
+    }
+    return tiles;
+  }
+  function openPuzzle(){
+    modalOpen = true;
+    puzzleTiles = shufflePuzzle();
+    puzzleStartTime = Date.now();
+    puzzleMoves = 0;
+    puzzleCoinAwarded = false;
+    puzzleSolved = false;
+    document.getElementById('puzzleResult').textContent = '';
+    renderPuzzle();
+    document.getElementById('puzzleOverlay').classList.remove('hidden');
+    requestAnimationFrame(puzzleTimerLoop);
+  }
+  function renderPuzzle(){
+    const grid = document.getElementById('puzzleGrid');
+    grid.innerHTML = '';
+    puzzleTiles.forEach((v, idx)=>{
+      const tile = document.createElement('div');
+      tile.className = 'puzzleTile' + (v===0 ? ' empty' : '') + (puzzleSolved && v!==0 ? ' solved' : '');
+      tile.textContent = v===0 ? '' : v;
+      if(v!==0) tile.addEventListener('click', ()=>puzzleTryMove(idx));
+      grid.appendChild(tile);
+    });
+  }
+  function puzzleTryMove(idx){
+    if(puzzleSolved) return;
+    const blankIdx = puzzleTiles.indexOf(0);
+    if(!puzzleNeighbors(idx).includes(blankIdx)) return;
+    [puzzleTiles[idx], puzzleTiles[blankIdx]] = [puzzleTiles[blankIdx], puzzleTiles[idx]];
+    puzzleMoves++;
+    if(puzzleTiles.every((v,i)=> v === (i===8 ? 0 : i+1))){
+      puzzleSolved = true;
+      document.getElementById('puzzleResult').textContent = '🎉 Solved!';
+      if(!puzzleCoinAwarded){
+        puzzleCoinAwarded = true;
+        inventory.push('coin');
+        updateCoinChip();
+        document.getElementById('puzzleResult').textContent = '🎉 Solved! +1 🪙';
+      }
+    }
+    renderPuzzle();
+  }
+  function puzzleTimerLoop(){
+    if(document.getElementById('puzzleOverlay').classList.contains('hidden')) return;
+    if(!puzzleCoinAwarded && puzzleMoves>0 && Date.now()-puzzleStartTime >= 5000){
+      puzzleCoinAwarded = true;
+      inventory.push('coin');
+      updateCoinChip();
+      if(!puzzleSolved) document.getElementById('puzzleResult').textContent = '🧩 Nice persistence! +1 🪙';
+    }
+    requestAnimationFrame(puzzleTimerLoop);
   }
 
   // ---------- Rendering ----------
@@ -1789,20 +1984,28 @@
       else if(obj.type==='table') drawTable(obj);
       else if(obj.type==='raceball') drawRaceBall(obj);
       else if(obj.type==='petshop') drawPetShopStand(obj);
+      else if(obj.type==='puzzle') drawPuzzleToy(obj);
     }
 
     // The bowl/doghouse/food/toy are drawn straight from `equipped` rather
     // than as scene objects, so swapping them in the Pet Shop's Yard Setup
     // dropdowns takes effect immediately without rebuilding the scene.
+    const foodTarget = getFoodTarget();
     if(player.scene==='kitchen'){
       const bowl = spriteDescFor('bowl', DEFAULT_BOWL);
       drawSpriteAt(bowl, KITCHEN_BOWL_POS.x, KITCHEN_BOWL_POS.y, 2.5);
+      // a placed meat treat sits right in/on the bowl
+      if(foodTarget && foodTarget.scene==='kitchen' && shopItemById[equipped.food]){
+        drawSpriteAt(shopItemById[equipped.food], KITCHEN_BOWL_POS.x+10, KITCHEN_BOWL_POS.y-6, 2.2);
+      }
     }
     if(player.scene==='outside'){
       const house = spriteDescFor('house', DEFAULT_HOUSE);
       drawSpriteAt(house, HOUSE_POS.x, HOUSE_POS.y, 1);
-      drawSpriteAt(DEFAULT_BONE, BONE_POS.x, BONE_POS.y, 1.6);
-      if(equipped.food && shopItemById[equipped.food]){
+      if(Date.now()-GAME_START_TIME < BONE_LIFETIME_MS){
+        drawSpriteAt(DEFAULT_BONE, BONE_POS.x, BONE_POS.y, 1.6);
+      }
+      if(foodTarget && foodTarget.scene==='outside' && shopItemById[equipped.food]){
         drawSpriteAt(shopItemById[equipped.food], FOOD_SPOT.x, FOOD_SPOT.y, 2.2);
       }
       if(equipped.toy && shopItemById[equipped.toy]){
@@ -1888,6 +2091,22 @@
 
     ctx.font=`${20*scale}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(obj.emoji, cx, cy);
+  }
+
+  function drawPuzzleToy(obj){
+    glowIf(obj,'#a6ff7a');
+    const cx = obj.x+obj.w/2, cy = obj.y+obj.h/2;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy+6, obj.w/2, 6, 0, 0, Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.15)'; ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, obj.w/2, 0, Math.PI*2);
+    ctx.fillStyle = '#a6ff7a';
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🧩', cx, cy);
+    unglow(obj);
   }
 
   function drawToolBench(obj){
