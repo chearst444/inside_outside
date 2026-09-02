@@ -439,22 +439,30 @@
         }
         #sq-title {
             position: absolute;
-            left: 0; right: 0;
-            top: 3.5%;
+            left: 50%;
+            top: 4%;
+            transform: translateX(-50%);
             z-index: 4;
             text-align: center;
             font-family: Fredoka, Nunito, sans-serif;
             font-weight: 700;
-            font-size: clamp(32px, 6.4vw, 72px);
+            font-size: clamp(28px, 5.6vw, 62px);
             letter-spacing: 0.08em;
-            color: #fff6e8;
-            text-shadow: 0 2px 0 #3b2414, 0 6px 16px rgba(0,0,0,.55), 0 0 2px #3b2414;
+            color: #5a3214;
             pointer-events: none;
             line-height: 1;
+            width: max-content;
+            max-width: 92%;
+            padding: 10px 22px 12px;
+            background: #f6e6c8;
+            border: 3px solid #c9a36a;
+            border-radius: 18px;
+            box-shadow: 0 4px 0 #8a5a2a, 0 10px 18px rgba(0,0,0,.4);
         }
         #sq-open.is-book #sq-title {
-            top: 2.2%;
-            font-size: clamp(26px, 5vw, 56px);
+            top: 1.6%;
+            font-size: clamp(20px, 4vw, 36px);
+            padding: 6px 14px 8px;
         }
         #sq-open .sq-howto { display: none !important; }
         #sq-book {
@@ -485,29 +493,33 @@
             image-rendering: pixelated;
             image-rendering: crisp-edges;
         }
-        #sq-howto-line {
-            width: min(100%, 520px);
-            height: 28px;
+        #sq-howto-line { display: none !important; }
+        #sq-book-pages {
+            position: absolute;
+            left: 7%;
+            right: 7%;
+            top: 16%;
+            bottom: 16%;
+            display: flex;
+            pointer-events: none;
+            z-index: 3;
+        }
+        #sq-book-pages .sq-book-page {
+            flex: 1;
+            box-sizing: border-box;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-style: solid;
-            border-width: 3px 14px 3px 6px;
-            border-image-source: url(assets/ui/dialogue_bar.png);
-            border-image-slice: 4 18 4 6 fill;
-            border-image-repeat: stretch;
-            image-rendering: pixelated;
-            font-family: Fredoka, Nunito, sans-serif;
-            font-weight: 600;
-            font-size: 14px;
-            color: #3b2414;
             text-align: center;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            box-sizing: border-box;
+            font-family: Fredoka, Nunito, sans-serif;
+            font-weight: 700;
+            font-size: clamp(13px, 2.5vw, 20px);
+            line-height: 1.35;
+            color: #3b2414;
         }
-        #sq-book-col .sq-play { pointer-events: auto; margin-top: 2px; }
+        #sq-book-pages .sq-book-page.left { padding: 8% 14% 8% 8%; }
+        #sq-book-pages .sq-book-page.right { padding: 8% 8% 8% 14%; }
+        #sq-book-col .sq-play { pointer-events: auto; margin-top: 8px; }
         #sq-open .sq-howto p {
             margin: 0 0 6px;
             font-size: clamp(15px, 3.4vw, 20px);
@@ -587,8 +599,11 @@
       <div id="sq-book-col">
         <div id="sq-book-wrap">
           <img id="sq-book-art" src="assets/ui/book_turn.png" alt="">
+          <div id="sq-book-pages">
+            <div class="sq-book-page left">Dig outside. Move the rock, then tap the mound.</div>
+            <div class="sq-book-page right">Bring treasures inside. Pet Max. Craft in the house.</div>
+          </div>
         </div>
-        <div id="sq-howto-line">Dig for treasures. Move the rock, then tap the mound.</div>
         <button type="button" class="sq-play" id="sq-play" aria-label="Play">
           <img src="assets/btn_play.png" alt="PLAY" width="92" height="29">
         </button>
@@ -942,6 +957,29 @@
   const dinoFound = {};
   let museumReady = false;
   const MUSEUM = {x:195, y:348};
+  const MUSEUM_SAVE_KEY = 'insideOutsideMuseum';
+  function loadMuseumSave(){
+    try {
+      const raw = localStorage.getItem(MUSEUM_SAVE_KEY);
+      if(!raw) return;
+      const s = JSON.parse(raw);
+      if(!s) return;
+      if(s.found){
+        for(const id of DINO_IDS){
+          if(s.found[id]) dinoFound[id] = true;
+        }
+      }
+      if(s.museumComplete) museumReady = true;
+    } catch (e) {}
+  }
+  function saveMuseum(){
+    try {
+      localStorage.setItem(MUSEUM_SAVE_KEY, JSON.stringify({
+        found: Object.assign({}, dinoFound),
+        museumComplete: !!museumReady
+      }));
+    } catch (e) {}
+  }
   let bowlLevel = 0;
   let foodBagUntil = 0;
   let foodBagId = null;
@@ -1001,7 +1039,6 @@
         if(player.scene===dog.scene && dog.scene==="outside" && Math.random()<0.0025){
           b.state = "land";
           b.landUntil = now + 1600;
-          showToast("Max wags his tail.");
         }
         if(b.x < -30 || b.x > 930){
           b.state = "wait";
@@ -1034,7 +1071,8 @@
   }
   function drawMuseum(){
     if(player.scene!=="bedroom") return;
-    if(dinoCount()===0) return;
+    const got = dinoCount();
+    if(got===0) return;
     drawPet("dino_stand", MUSEUM.x+8, MUSEUM.y+22, 2.1);
     drawPet("dino_stand", MUSEUM.x+98, MUSEUM.y+22, 2.1);
     drawPet("velvet_rope", MUSEUM.x-6, MUSEUM.y+40, 1.7);
@@ -1043,6 +1081,34 @@
     if(museumReady){
       drawPet("dino_exhibit_a", MUSEUM.x, MUSEUM.y-8, 1.3);
       drawPet("dino_exhibit_b", MUSEUM.x+90, MUSEUM.y-8, 1.3);
+      ctx.save();
+      ctx.fillStyle = '#f6e6c8';
+      drawRoundedRect(MUSEUM.x+48, MUSEUM.y-48, 86, 22, 6);
+      ctx.fill();
+      ctx.strokeStyle = '#8a5a2a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#5a3214';
+      ctx.font = 'bold 12px Fredoka, Nunito, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('My Dino', MUSEUM.x+91, MUSEUM.y-37);
+      ctx.restore();
+      const tw = Date.now()/220;
+      for(let i=0;i<8;i++){
+        const ang = tw + i*(Math.PI*2/8);
+        const sparkle = 0.55 + 0.45*Math.abs(Math.sin(tw*1.4 + i));
+        const sx = MUSEUM.x+70 + Math.cos(ang)*42;
+        const sy = MUSEUM.y+8 + Math.sin(ang)*18;
+        const im = petImgs.star_gold;
+        if(im && im.complete && im.naturalWidth){
+          const sc = (0.018 + 0.012*sparkle);
+          const w = im.naturalWidth*sc, h = im.naturalHeight*sc;
+          ctx.globalAlpha = sparkle;
+          ctx.drawImage(im, sx-w/2, sy-h/2, w, h);
+          ctx.globalAlpha = 1;
+        }
+      }
     } else {
       for(const piece of EXHIBIT_A){
         if(dinoFound[piece.id]) drawPet(piece.id, MUSEUM.x+piece.dx, MUSEUM.y+piece.dy, 2.3);
@@ -1051,7 +1117,6 @@
         if(dinoFound[piece.id]) drawPet(piece.id, MUSEUM.x+90+piece.dx, MUSEUM.y+piece.dy, 2.3);
       }
     }
-    /* furniture chest is a bedroom object; dug-up chest stays in inventory */
   }
 
   for(const f of DIG_FINDS){
@@ -1218,7 +1283,7 @@
   }
 
   // ---------- Player / state ----------
-  const player = { type:'player', scene:'outside', x:120, y:300, radius:30, speed:3.4, facing:'right', dir:'down', animFrame:0, animAcc:0, digUntil:0, pendingFind:null };
+  const player = { type:'player', scene:'outside', x:120, y:300, radius:30, speed:3.4, facing:'right', dir:'down', animFrame:0, animAcc:0, digUntil:0, pendingFind:null, walkTarget:null, pendingDig:null };
 
   // The dog lives in the yard (the 'outside' scene), wandering on its own
   // between idle/sniff/sit/lie/sleep poses and walking to a new spot.
@@ -1429,9 +1494,6 @@
     msg = String(msg);
     if(msg === 'Max is happy') msg = 'Max is happy.';
     if(msg === 'Max wags his tail') msg = 'Max wags his tail.';
-    if(/\bMax\b/i.test(msg) && msg !== 'Max is happy.' && msg !== 'Max wags his tail.'){
-      return;
-    }
     const bar = document.getElementById('dialogueBar');
     const text = document.getElementById('dialogueText');
     if(!bar || !text) return;
@@ -1469,13 +1531,34 @@
 
   function updatePlayer(){
     if(modalOpen) return;
+    if(Date.now() < player.digUntil) return;
     let dx=0, dy=0;
-    if(keys['arrowleft']||keys['a']) dx-=1;
-    if(keys['arrowright']||keys['d']) dx+=1;
-    if(keys['arrowup']||keys['w']) dy-=1;
-    if(keys['arrowdown']||keys['s']) dy+=1;
-    dx += touchVec.dx; dy += touchVec.dy;
-    if(dx||dy){ const len=Math.hypot(dx,dy); dx/=len; dy/=len; }
+    if(player.walkTarget){
+      dx = player.walkTarget.x - player.x;
+      dy = player.walkTarget.y - player.y;
+      const dist = Math.hypot(dx, dy);
+      if(dist < 8){
+        const spot = player.pendingDig;
+        player.walkTarget = null;
+        player.pendingDig = null;
+        if(spot){
+          const cx = spot.x + spot.w/2, cy = spot.y + spot.h/2;
+          faceToward(cx, cy);
+          if(spot.rockOn) shoveRock(spot);
+          handleDig(spot);
+        }
+        dx = 0; dy = 0;
+      } else {
+        dx /= dist; dy /= dist;
+      }
+    } else {
+      if(keys['arrowleft']||keys['a']) dx-=1;
+      if(keys['arrowright']||keys['d']) dx+=1;
+      if(keys['arrowup']||keys['w']) dy-=1;
+      if(keys['arrowdown']||keys['s']) dy+=1;
+      dx += touchVec.dx; dy += touchVec.dy;
+      if(dx||dy){ const len=Math.hypot(dx,dy); dx/=len; dy/=len; }
+    }
 
     let nx = player.x + dx*player.speed;
     let ny = player.y + dy*player.speed;
@@ -1519,6 +1602,9 @@
     }
     if(dx||dy) player.animAcc += 0.18;
     player.animFrame = Math.floor(player.animAcc);
+    if(!player.walkTarget && (keys['arrowleft']||keys['a']||keys['arrowright']||keys['d']||keys['arrowup']||keys['w']||keys['arrowdown']||keys['s']||touchVec.dx||touchVec.dy)){
+      player.pendingDig = null;
+    }
 
     for(const door of scene.doors){
       const inYRange = player.y > door.yRange[0] && player.y < door.yRange[1];
@@ -1649,26 +1735,21 @@
     } else if(dog.state==='goEat'){
       dog.state='eating'; dog.stateUntil=now+2200;
       const it = shopItemById[equipped.food];
-      showToast('Max is happy');
       spawnHeartBurst(dog.x, dog.y-dog.size*0.5);
     } else if(dog.state==='goPlay'){
       const it = shopItemById[equipped.toy];
       if(dog.isFetch && it && it.category==='Balls'){
         dog.state='fetching'; dog.stateUntil=now+900;
-        showToast('Max wags his tail');
       } else {
         dog.state='playing'; dog.stateUntil=now+2600;
-        showToast('Max wags his tail');
         spawnHeartBurst(dog.x, dog.y-dog.size*0.5);
       }
     } else if(dog.state==='return'){
       ballThrowPos = null;
       dog.isFetch = false;
-      showToast('Max wags his tail');
       dog.state='idle'; dog.stateUntil=now+600;
     } else if(dog.state==='goBed'){
       dog.state='inBed'; dog.stateUntil=now+15000+Math.random()*10000;
-      showToast('Max is happy');
     }
   }
 
@@ -1716,12 +1797,19 @@
     setDogAnim(STATE_ANIM[dog.state] || 'idle');
   }
 
+  let maxTalkUntil = 0;
+  function sayMaxLine(){
+    const now = Date.now();
+    if(now < maxTalkUntil) return;
+    maxTalkUntil = now + 2800;
+    showToast(DOG_FLAVORS[Math.floor(Math.random()*DOG_FLAVORS.length)]);
+  }
   function petDog(){
     const anim = DOG_ANIMS.bark;
     dog.barkUntil = Date.now() + (anim.frames/anim.fps)*1000;
     dog.facing = player.x < dog.x ? -1 : 1;
     spawnHeartBurst(dog.x, dog.y - dog.size*0.55);
-    showToast(DOG_FLAVORS[Math.floor(Math.random()*DOG_FLAVORS.length)]);
+    sayMaxLine();
   }
 
   // ---------- Max's popup menu (Pet / Fetch) ----------
@@ -1729,6 +1817,7 @@
   // enabled as soon as you own ANY ball from the Pet Shop (it doesn't need
   // to already be the yard's placed toy; picking Fetch places it there).
   function openDogMenu(){
+    sayMaxLine();
     modalOpen = true;
     const menu = document.getElementById('dogMenu');
     menu.style.left = (dog.x/CANVAS_W*100) + '%';
@@ -1830,7 +1919,7 @@
   }
 
   function interactWith(obj){
-    if(obj.type==='dig'){ if(obj.rockOn){ shoveRock(obj); return; } handleDig(obj); }
+    if(obj.type==='dig'){ approachThenDig(obj); return; }
     else if(obj.type==='calendar') openCalendar();
     else if(obj.type==='toolbench') openCrafting();
     else if(obj.type==='bed') takeNap();
@@ -1891,6 +1980,28 @@
     obj.rockOx = dir * 56;
     obj.rockOy = -10;
   }
+  function faceToward(x, y){
+    const dx = x - player.x, dy = y - player.y;
+    if(Math.abs(dx) > Math.abs(dy)){
+      player.dir = dx>0 ? 'right' : 'left';
+      player.facing = player.dir;
+    } else if(Math.abs(dy) > 0.15){
+      player.dir = dy>0 ? 'down' : 'up';
+    }
+  }
+  function approachThenDig(spot){
+    if(Date.now() < player.digUntil) return;
+    const cx = spot.x + spot.w/2, cy = spot.y + spot.h/2;
+    const dist = Math.hypot(player.x - cx, player.y - cy);
+    if(dist > 40){
+      player.walkTarget = {x: cx, y: cy + 26};
+      player.pendingDig = spot;
+      return;
+    }
+    faceToward(cx, cy);
+    if(spot.rockOn) shoveRock(spot);
+    handleDig(spot);
+  }
 
   function finishDig(spot, find){
     inventory.push(find.id);
@@ -1899,13 +2010,17 @@
     spawnDirtBurst(spot.x+spot.w/2, spot.y+spot.h/2);
     if(find.kind==="dino"){
       dinoFound[find.id] = true;
-      showToast('You found a dinosaur bone. Find them all and you can have your very own museum.');
       const got = DINO_IDS.filter(id=>dinoFound[id]).length;
-      if(got===DINO_IDS.length && !museumReady){
+      if(got===1){
+        showToast('You found a dinosaur bone. Find them all and you can have your very own museum.');
+      } else if(got===DINO_IDS.length && !museumReady){
         museumReady = true;
         spawnMuseumStars(MUSEUM.x+70, MUSEUM.y+20);
         showToast('The museum is complete. You are a great archaeologist!');
+      } else {
+        showToast('You found a dinosaur bone.');
       }
+      saveMuseum();
     } else if(find.kind==="coin"){
       showToast('You found a gold coin.');
       lastCoinShown = coinCount();
@@ -2587,16 +2702,17 @@
 
     // objects
     for(const obj of scene.objects){
+      if(player.scene==='outside' && (obj.type==='bed' || obj.type==='chest')) continue;
       if(obj.type==='dig') drawDig(obj);
       else if(obj.type==='calendar') drawCalendarSprite(obj);
       else if(obj.type==='toy') drawToy(obj);
       else if(obj.type==='toolbench') drawToolBench(obj);
-      else if(obj.type==='bed') drawBed(obj);
+      else if(obj.type==='bed' && player.scene==='bedroom') drawBed(obj);
       else if(obj.type==='table') drawTable(obj);
       else if(obj.type==='raceball') drawRaceBall(obj);
       else if(obj.type==='petshop') drawPetShopStand(obj);
       else if(obj.type==='puzzle') drawPuzzleToy(obj);
-      else if(obj.type==='chest') drawBedroomChest(obj);
+      else if(obj.type==='chest' && player.scene==='bedroom') drawBedroomChest(obj);
     }
 
     // The bowl/doghouse/food/toy are drawn straight from `equipped` rather
@@ -2612,11 +2728,7 @@
     }
     if(player.scene==='outside'){
       drawYardPretty();
-      if(equipped.house && shopItemById[equipped.house]){
-        drawSpriteAt(shopItemById[equipped.house], HOUSE_POS.x, HOUSE_POS.y, 1);
-      } else {
-        drawPet('yard_house', HOUSE_POS.x, HOUSE_POS.y, 6.2);
-      }
+      drawPet('yard_house', HOUSE_POS.x, HOUSE_POS.y, 6.2);
       if(Date.now()-GAME_START_TIME < BONE_LIFETIME_MS){
         drawPet('yard_bone', BONE_POS.x, BONE_POS.y, 5);
       }
@@ -2871,7 +2983,7 @@
       const elapsed = 720 - (player.digUntil - now);
       const fi = Math.min(4, Math.floor(elapsed / 144));
       key = 'dig_'+d+'_'+fi;
-    } else if(keys['arrowleft']||keys['a']||keys['arrowright']||keys['d']||keys['arrowup']||keys['w']||keys['arrowdown']||keys['s']||touchVec.dx||touchVec.dy){
+    } else if(player.walkTarget || keys['arrowleft']||keys['a']||keys['arrowright']||keys['d']||keys['arrowup']||keys['w']||keys['arrowdown']||keys['s']||touchVec.dx||touchVec.dy){
       key = 'walk_'+d+'_'+(player.animFrame % 8);
     } else {
       key = 'idle_'+d;
@@ -2905,6 +3017,7 @@
     drawScene();
     requestAnimationFrame(loop);
   }
+  loadMuseumSave();
   document.getElementById('roomName').textContent = SCENES[player.scene].name;
   updateCoinChip();
   loop();
@@ -2916,16 +3029,6 @@
   var btn = document.getElementById('sq-play');
   if (!overlay) return;
   var bookShown = false;
-  var howto = [
-    'Dig for treasures. Move the rock, then tap the mound.',
-    'Use gold coins to buy things for Max in the pet shop.',
-    'Find all the dinosaur bones and you can have your very own museum.'
-  ];
-  var howtoI = 0;
-  function paintHowto(){
-    var el = document.getElementById('sq-howto-line');
-    if(el) el.textContent = howto[howtoI % howto.length];
-  }
   function showBook() {
     if (bookShown || overlay.classList.contains('is-off')) return;
     bookShown = true;
@@ -2935,12 +3038,6 @@
       img.src = 'assets/ui/book_turn.png';
       setTimeout(function () { img.src = 'assets/ui/book_open.png'; }, 240);
     }
-    paintHowto();
-    setInterval(function(){
-      if(overlay.classList.contains('is-off')) return;
-      howtoI += 1;
-      paintHowto();
-    }, 2600);
   }
   function start(e) {
     if (overlay.classList.contains('is-off')) return;
