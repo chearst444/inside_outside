@@ -219,12 +219,6 @@
   .shopBuyBtn:disabled{ background:#3a4a33; color:#8fbf7a; cursor:default; }
   #shopCollection{ display:flex; flex-wrap:wrap; gap:8px; min-height:40px; max-height:150px; overflow-y:auto; padding-right:2px; touch-action: pan-y; }
   #shopCollection .shopIcon{ image-rendering:pixelated; }
-  #yardSetup{ display:flex; flex-direction:column; gap:10px; margin-bottom:4px; }
-  #yardSetup label{ display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px; color:#c9cdd6; }
-  #yardSetup select{
-    background:#2c3040; color:#eee; border:1px solid rgba(255,255,255,.2);
-    border-radius:6px; padding:5px 8px; font-size:13px; max-width:230px; flex:1;
-  }
 
   /* crafting particle burst */
   #craftBurstLayer{
@@ -714,17 +708,6 @@
       <div class="chip" id="shopCoinChip">🪙 Coins: <span id="shopCoinCount">0</span></div>
       <div id="shopCatalog"></div>
 
-      <h3 class="shopCollectionHeading">Yard Setup</h3>
-      <div class="sub" style="margin-bottom:10px;">Swap in anything you own. Max eats whatever's set below (bring him inside first ,  food goes in the kitchen bowl) and plays with whatever's on the toy spot. Touch Max any time you own a ball to fetch ,  it doesn't need to be placed here. A collar is worn instead of played with, and your first bed goes straight to the bedroom.</div>
-      <div id="yardSetup">
-        <label>Food Bowl (kitchen) <select id="equipBowl"></select></label>
-        <label>Doghouse (yard) <select id="equipHouse"></select></label>
-        <label>Food (kitchen bowl) <select id="equipFood"></select></label>
-        <label>Toy Spot (yard) <select id="equipToy"></select></label>
-        <label>Collar (worn) <select id="equipCollar"></select></label>
-        <label>Bed (bedroom) <select id="equipBed"></select></label>
-      </div>
-
       <h3 class="shopCollectionHeading">Your Collection</h3>
       <div id="shopCollection"></div>
     </div>
@@ -963,7 +946,7 @@
   const BEDROOM_CHEST = {x:620, y:300};
   const dinoFound = {};
   let museumReady = false;
-  const MUSEUM = {x:195, y:348};
+  const MUSEUM = {x:195, y:428};
   const MUSEUM_SAVE_KEY = 'insideOutsideMuseum';
   function loadMuseumSave(){
     try {
@@ -1226,14 +1209,14 @@
       ],
       decor: [],
       objects: [
-        bedObj(190,90,300,180),
-        toyObj(430,118,'🧸','#ff9f7a','toy1'),
-        raceBallObj(515,118),
-        toyObj(600,118,'🚗','#ffe27a','toy3'),
-        puzzleToyObj(430,190),
-        toyObj(515,190,'🪀','#ff7ac6','toy5'),
-        chestObj(640,300),
-        toolBenchObj(590,385),
+        bedObj(185,102,510,330),
+        toyObj(195,445,'🧸','#ff9f7a','toy1'),
+        raceBallObj(255,445),
+        toyObj(315,445,'🚗','#ffe27a','toy3'),
+        puzzleToyObj(375,445),
+        toyObj(435,445,'🪀','#ff7ac6','toy5'),
+        chestObj(520,430),
+        toolBenchObj(610,400),
       ]
     }
   };
@@ -1315,13 +1298,13 @@
   const petInventory = []; // array of purchased Pet Shop item ids ,  the "inventory of selections"
   // Which owned item (by id) is currently placed/displayed in each world
   // slot ,  null means "show the free default" (bowl/house) or "nothing
-  // placed there" (food/toy). Swapped via the dropdowns in the Pet Shop.
+  // placed there" (food/toy). Set automatically on purchase.
   const equipped = { bowl:null, house:null, food:null, toy:null, collar:null, bed:null };
   const KITCHEN_BOWL_POS = {x:680, y:155};
   const HOUSE_POS = {x:55,  y:220};
   const BONE_POS  = {x:165, y:275};
   const TOY_SPOT  = {x:600, y:350}; // the dog walks here to play/fetch, if equipped.toy is set
-  const DOG_BED_POS = {x:620, y:215}; // bedroom, placed as soon as you buy your first bed
+  const DOG_BED_POS = {x:575, y:438}; // bedroom, placed as soon as you buy a bed
   const DOG_BED_SCALE = 1.8;
   const DEFAULT_BOWL  = {sheet:'bowls',  sx:0,sy:0, sw:16,sh:16, name:'Green Food Bowl'};
   const DEFAULT_HOUSE = {name:'Brown Doghouse', houseKey:'brown', src:'assets/shop/house_brown.png', sw:100, sh:72};
@@ -1545,7 +1528,7 @@
       const rm = sceneRect(target);
       dog.x = Math.min(Math.max(spawn.x + (spawn.x < rm.x+rm.w/2 ? 44 : -44), rm.x+60), rm.x+rm.w-60);
       dog.y = spawn.y;
-      if(target==='bedroom'){ dog.x = 500; dog.y = 300; }
+      if(target==='bedroom'){ dog.x = 500; dog.y = 455; }
       dog.tx = dog.x; dog.ty = dog.y;
       dog.state = 'idle'; dog.stateUntil = Date.now()+900;
     }
@@ -1742,13 +1725,22 @@
     dog.state='goEat'; dog.tx=ft.pos.x; dog.ty=ft.pos.y; dog.stateUntil=Date.now()+9000;
   }
 
-  // Sends Max to lie down on his bed ,  only works once you own one and
-  // he's actually in the bedroom to begin with.
+  // Sends Max to lie down on his bed. Buying a bed places it in the bedroom;
+  // tapping the bed (or tapping Max while you're in there) walks him over
+  // and plays the lie-down pose. If he's in another room, he comes in first.
   function callDogToBed(){
     if(!equipped.bed) return;
-    if(dog.scene!=='bedroom'){ showToast('Max needs to be in the bedroom for that!'); return; }
-    if(dog.state==='inBed'){ showToast('Max is already curled up on his bed!'); return; }
+    if(dog.state==='inBed' && dog.scene==='bedroom'){
+      showToast('Max is already curled up on his bed!');
+      return;
+    }
+    if(dog.scene!=='bedroom'){
+      dog.scene = 'bedroom';
+      dog.x = 500; dog.y = 455;
+      dog.tx = dog.x; dog.ty = dog.y;
+    }
     dog.state='goBed'; dog.tx=DOG_BED_CENTER.x; dog.ty=DOG_BED_CENTER.y; dog.stateUntil=Date.now()+9000;
+    showToast('Max walks to his bed.');
   }
 
   // Called when a travel state reaches its destination (or, as a safety
@@ -1950,7 +1942,10 @@
     else if(obj.type==='bed') takeNap();
     else if(obj.type==='table') takeMeal();
     else if(obj.type==='raceball') openRace();
-    else if(obj.type==='dog') openDogMenu();
+    else if(obj.type==='dog'){
+      if(equipped.bed && player.scene==='bedroom') callDogToBed();
+      else openDogMenu();
+    }
     else if(obj.type==='petshop') openPetShop();
     else if(obj.type==='foodspot') callDogToEat();
     else if(obj.type==='puzzle') openPuzzle();
@@ -2410,43 +2405,6 @@
       });
     }
 
-    renderYardSetup();
-  }
-
-  // One dropdown per world slot ,  lists whatever you own in the matching
-  // categories, plus a "default / none" option. Picking one updates
-  // `equipped` immediately; drawScene reads it fresh every frame.
-  const YARD_SLOTS = [
-    {select:'equipBowl',  slot:'bowl',   categories:['Food Bowls'], defaultLabel:'Default ,  Green Food Bowl'},
-    {select:'equipHouse', slot:'house',  categories:['Doghouses'],  defaultLabel:'Default: Brown Doghouse'},
-    {select:'equipFood',  slot:'food',   categories:['Dog Food','Meat Treats'], defaultLabel:',  None (empty spot) , '},
-    {select:'equipToy',   slot:'toy',    categories:['Balls','Chew Bones','Rope Toys'], defaultLabel:',  None (empty spot) , '},
-    {select:'equipCollar',slot:'collar', categories:['Collars'], defaultLabel:',  None , '},
-    {select:'equipBed',   slot:'bed',    categories:['Beds'], defaultLabel:',  None , '},
-  ];
-  function renderYardSetup(){
-    YARD_SLOTS.forEach(({select, slot, categories, defaultLabel})=>{
-      const sel = document.getElementById(select);
-      sel.innerHTML = '';
-      const optDefault = document.createElement('option');
-      optDefault.value = '';
-      optDefault.textContent = defaultLabel;
-      sel.appendChild(optDefault);
-      petInventory.forEach(id=>{
-        const it = shopItemById[id];
-        if(!it || !categories.includes(it.category)) return;
-        const opt = document.createElement('option');
-        opt.value = id;
-        opt.textContent = it.name;
-        sel.appendChild(opt);
-      });
-      sel.value = equipped[slot] || '';
-      sel.onchange = ()=>{
-        equipped[slot] = sel.value || null;
-        const label = sel.value ? shopItemById[sel.value].name : defaultLabel;
-        showToast(`Now set: ${label}`);
-      };
-    });
   }
 
   function buyShopItem(item){
@@ -2458,16 +2416,27 @@
     }
     inventory.splice(coinIdx,1);
     petInventory.push(item.id);
-    // Your first bed goes straight into the bedroom ,  no dropdown needed.
-    if(item.category==='Beds' && !equipped.bed){
+    let placed = '';
+    if(item.category==='Beds'){
       equipped.bed = item.id;
-      showToast(`Bought the ${item.name}! 🐾 It's set up in the bedroom.`);
+      placed = " It's set up in the bedroom. Tap it (or Max) and he lies down.";
     } else if(item.category==='Doghouses'){
       equipped.house = item.id;
-      showToast(`Bought the ${item.name}! 🐾 It's in the yard now.`);
-    } else {
-      showToast(`Bought the ${item.name}! 🐾`);
+      placed = " It replaces the yard house.";
+    } else if(item.category==='Food Bowls' || item.category==='Water Bowls'){
+      equipped.bowl = item.id;
+      placed = " It's in the kitchen.";
+    } else if(item.category==='Dog Food' || item.category==='Meat Treats'){
+      equipped.food = item.id;
+      placed = " It's in the kitchen bowl.";
+    } else if(item.category==='Balls' || item.category==='Chew Bones' || item.category==='Rope Toys'){
+      equipped.toy = item.id;
+      placed = " It's on the yard toy spot.";
+    } else if(item.category==='Collars'){
+      equipped.collar = item.id;
+      placed = " Max is wearing it.";
     }
+    showToast(`Bought the ${item.name}! 🐾` + placed);
     renderPetShop();
     updateCoinChip();
   }
@@ -2776,13 +2745,16 @@
       else if(obj.type==='chest' && player.scene==='bedroom') drawBedroomChest(obj);
     }
 
-    // The bowl/doghouse/food/toy are drawn straight from `equipped` rather
-    // than as scene objects, so swapping them in the Pet Shop's Yard Setup
-    // dropdowns takes effect immediately without rebuilding the scene.
+    // Bowl / doghouse / food / toy / bed / collar are drawn from `equipped`,
+    // which buyShopItem sets automatically (no Yard Setup dropdowns).
     const foodTarget = getFoodTarget();
     if(player.scene==='kitchen'){
       const lvl = Math.min(3, bowlLevel|0);
-      drawPet('bowl_kibble_'+lvl, KITCHEN_BOWL_POS.x, KITCHEN_BOWL_POS.y, 1.5);
+      if(equipped.bowl && shopItemById[equipped.bowl]){
+        drawSpriteAt(shopItemById[equipped.bowl], KITCHEN_BOWL_POS.x, KITCHEN_BOWL_POS.y, 2.2);
+      } else {
+        drawPet('bowl_kibble_'+lvl, KITCHEN_BOWL_POS.x, KITCHEN_BOWL_POS.y, 1.5);
+      }
       if(foodTarget && foodTarget.scene==='kitchen' && shopItemById[equipped.food]){
         drawSpriteAt(shopItemById[equipped.food], KITCHEN_BOWL_POS.x+10, KITCHEN_BOWL_POS.y-6, 2.2);
       }
