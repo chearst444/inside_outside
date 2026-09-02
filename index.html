@@ -470,17 +470,7 @@
             max-height: 100dvh;
             overflow: hidden;
         }
-        #sq-open.is-book #sq-title {
-            position: relative;
-            left: auto;
-            top: auto;
-            transform: none;
-            font-size: clamp(14px, 2.6vw, 24px);
-            padding: 4px 12px 5px;
-            margin: 0 0 10px;
-            z-index: 5;
-            flex-shrink: 0;
-        }
+        #sq-open.is-book #sq-title { display:none; }
         #sq-open .sq-howto { display: none !important; }
         #sq-book {
             position: absolute;
@@ -822,7 +812,10 @@
 
   const ROOM_KEYS = [
     'bed','desk','nightstand','lamp','bookshelf','window','lights',
-    'clock','rug','teddy','pic_bird','pic_blue','mug','books'
+    'clock','rug','teddy','pic_bird','pic_blue','mug','books',
+    'kitchen_fridge','kitchen_cabinet','kitchen_sink','kitchen_table','kitchen_plant',
+    'kitchen_stool','kitchen_teapot','kitchen_hood','kitchen_base','kitchen_stove',
+    'kitchen_pitcher','kitchen_mug','kitchen_mug_tan','kitchen_utensils'
   ];
   const roomImgs = {};
   for(const k of ROOM_KEYS){
@@ -850,6 +843,23 @@
     ctx.fillRect(room.x, room.y, room.w, wallBand-26);
     ctx.fillStyle = '#3d2c1a';
     ctx.fillRect(room.x, room.y+wallBand-26, room.w, 26);
+  }
+  function drawKitchenFloor(room){
+    ctx.fillStyle = '#5f5f5f';
+    ctx.fillRect(room.x, room.y, room.w, room.h);
+    const wallH = 94;
+    ctx.fillStyle = '#4a3424';
+    ctx.fillRect(room.x, room.y, room.w, wallH);
+    const tile = 16;
+    for(let y=room.y+6; y<room.y+wallH-10; y+=tile){
+      for(let x=room.x+6; x<room.x+room.w-6; x+=tile){
+        const i = (((x-room.x)/tile)|0) + (((y-room.y)/tile)|0);
+        ctx.fillStyle = i%2 ? '#ececec' : '#c5c9cc';
+        ctx.fillRect(x, y, tile-1, tile-1);
+      }
+    }
+    ctx.fillStyle = '#3d2a1c';
+    ctx.fillRect(room.x, room.y+wallH-8, room.w, 8);
   }
 
   ctx.imageSmoothingEnabled = false; // keep the dog's pixel-art sprites crisp
@@ -1250,21 +1260,33 @@
     },
     kitchen: {
       name: 'Kitchen',
-      floor: '#e7d3ab',
-      wall: '#8a6a45',
+      floor: '#5f5f5f',
+      wall: '#4a3424',
       rect: {x:110, y:70, w:680, h:460},
       doors: [
         {side:'west', yRange:[250,350], target:'outside', spawn:{x:830,y:300}},
         {side:'east', yRange:[250,350], target:'bedroom', spawn:{x:190,y:320}},
       ],
       decor: [
-        {x:130,y:390,w:140,h:100,color:'#c0c0c8',label:'🧊',labelSize:40,round:10},
-        {x:285,y:408,w:155,h:82,color:'#9a9a9a',label:'🍳',labelSize:34,round:10},
-        {x:455,y:412,w:185,h:74,color:'#b98a52',label:'🍽️',labelSize:30,round:10},
+        {type:'kitchrug', x:318, y:352, w:250, h:150},
+        {type:'roomsprite', sprite:'kitchen_fridge', x:122, y:84, scale:3.0},
+        {type:'roomsprite', sprite:'kitchen_plant', x:198, y:150, scale:3.2},
+        {type:'roomsprite', sprite:'kitchen_hood', x:276, y:78, scale:3.0},
+        {type:'roomsprite', sprite:'kitchen_stove', x:284, y:146, scale:3.0},
+        {type:'roomsprite', sprite:'kitchen_utensils', x:392, y:98, scale:3.2},
+        {type:'roomsprite', sprite:'kitchen_cabinet', x:430, y:78, scale:3.2},
+        {type:'roomsprite', sprite:'kitchen_sink', x:500, y:136, scale:3.0},
+        {type:'roomsprite', sprite:'kitchen_base', x:668, y:144, scale:2.8},
+        {type:'roomsprite', sprite:'kitchen_teapot', x:548, y:124, scale:2.8},
+        {type:'roomsprite', sprite:'kitchen_pitcher', x:588, y:116, scale:2.8},
+        {type:'roomsprite', sprite:'kitchen_stool', x:318, y:400, scale:3.0},
+        {type:'roomsprite', sprite:'kitchen_stool', x:478, y:400, scale:3.0},
+        {type:'roomsprite', sprite:'kitchen_stool', x:398, y:468, scale:3.0},
+        {type:'roomsprite', sprite:'kitchen_mug', x:398, y:382, scale:2.8},
       ],
       objects: [
-        calendarObj(400,86),
-        tableObj(325,215),
+        calendarObj(198,86),
+        tableObj(355,375),
       ]
     },
     bedroom: {
@@ -1337,8 +1359,8 @@
     return {id:'bedroom_chest', type:'chest', x,y, w:72, h:61};
   }
   function tableObj(x,y){
-    return {id:'table', type:'table', x,y, w:190,h:90, interactRadius:110,
-      promptLabel:'Sit and Eat'};
+    return {id:'table', type:'table', x,y, w:116,h:99, interactRadius:90,
+      promptLabel:'Sit and Eat', spriteScale:3.4};
   }
   function raceBallObj(x,y){
     return {id:'toy2', type:'raceball', x,y, w:36,h:36, interactRadius:58,
@@ -1380,7 +1402,30 @@
   // slot ,  null means "show the free default" (bowl/house) or "nothing
   // placed there" (food/toy). Set automatically on purchase.
   const equipped = { bowl:null, house:null, food:null, toy:null, collar:null, bed:null };
-  const KITCHEN_BOWL_POS = {x:680, y:155};
+  const KITCHEN_BOWL_POS = {x:700, y:448};
+  const KITCHEN_SOLIDS = [
+    {x:122, y:162, w:63, h:60},
+    {x:198, y:196, w:45, h:44},
+    {x:284, y:188, w:93, h:60},
+    {x:500, y:188, w:171, h:56},
+    {x:668, y:192, w:87, h:53},
+    {x:355, y:392, w:116, h:82},
+    {x:318, y:418, w:39, h:24},
+    {x:478, y:418, w:39, h:24},
+    {x:398, y:486, w:39, h:24},
+  ];
+  function hitsKitchenSolid(x, y, rad){
+    for(const s of KITCHEN_SOLIDS){
+      if(x>s.x-rad && x<s.x+s.w+rad && y>s.y-rad && y<s.y+s.h+rad) return true;
+    }
+    return false;
+  }
+  function resolveKitchenMove(px, py, nx, ny, rad){
+    if(!hitsKitchenSolid(nx, ny, rad)) return {x:nx, y:ny};
+    if(!hitsKitchenSolid(nx, py, rad)) return {x:nx, y:py};
+    if(!hitsKitchenSolid(px, ny, rad)) return {x:px, y:ny};
+    return {x:px, y:py};
+  }
   const HOUSE_POS = {x:28,  y:18};
   const BONE_POS  = {x:165, y:275};
   const TOY_SPOT  = {x:600, y:350}; // the dog walks here to play/fetch, if equipped.toy is set
@@ -1689,6 +1734,10 @@
 
     nx = Math.min(Math.max(nx,minX), maxX);
     ny = Math.min(Math.max(ny,minY), maxY);
+    if(player.scene==='kitchen'){
+      const p = resolveKitchenMove(player.x, player.y, nx, ny, r);
+      nx = p.x; ny = p.y;
+    }
     player.x = nx; player.y = ny;
     if(player.scene==='outside'){
       for(const obj of scene.objects){
@@ -1704,13 +1753,6 @@
     } else if(Math.abs(dy) > 0.15){
       player.dir = dy>0 ? 'down' : 'up';
       player.facing = player.dir==='right' || player.dir==='left' ? player.dir : player.facing;
-    }
-    if(player.scene==='kitchen'){
-      const t = scene.objects.find(o=>o.type==='table');
-      if(t){
-        const hit = nx>t.x-r && nx<t.x+t.w+r && ny>t.y-r && ny<t.y+t.h+r;
-        if(hit){ nx = player.x; ny = player.y; }
-      }
     }
     if(dx||dy) player.animAcc += 0.18;
     player.animFrame = Math.floor(player.animAcc);
@@ -1771,9 +1813,10 @@
       dog.tx = rm.x+90+Math.random()*Math.max(40, rm.w-180);
       dog.ty = rm.y+80+Math.random()*Math.max(40, rm.h-160);
       if(dog.scene==='kitchen'){
-        const t = SCENES.kitchen.objects.find(o=>o.type==='table');
-        if(t && dog.tx>t.x-20 && dog.tx<t.x+t.w+20 && dog.ty>t.y-20 && dog.ty<t.y+t.h+20){
-          dog.ty = t.y + t.h + 50;
+        if(hitsKitchenSolid(dog.tx, dog.ty, 36)){
+          dog.tx = Math.min(Math.max(dog.tx, rm.x+90), rm.x+rm.w-90);
+          dog.ty = rm.y + rm.h - 70;
+          if(hitsKitchenSolid(dog.tx, dog.ty, 36)) dog.ty = rm.y + 280;
         }
       }
       dog.stateUntil = now+8000; // safety timeout if it never quite reaches tx/ty
@@ -1951,12 +1994,12 @@
         const spd = dog.state==='return' ? 1.85 : 1.3;
         let nx = dog.x + dx/d*spd, ny = dog.y + dy/d*spd;
         if(dog.scene==='kitchen'){
-          const t = SCENES.kitchen.objects.find(o=>o.type==='table');
-          const rad = dog.size*0.28;
-          if(t && nx>t.x-rad && nx<t.x+t.w+rad && ny>t.y-rad && ny<t.y+t.h+rad){
-            nx = dog.x; ny = dog.y;
+          const rad = dog.size*0.22;
+          const p = resolveKitchenMove(dog.x, dog.y, nx, ny, rad);
+          if(p.x===dog.x && p.y===dog.y){
             if(dog.state==='walk'){ dog.state='idle'; dog.stateUntil=now+400; }
           }
+          nx = p.x; ny = p.y;
         }
         dog.x = nx; dog.y = ny;
         dog.facing = dx<0 ? -1 : 1;
@@ -2897,6 +2940,8 @@
     // floor
     if(player.scene==='bedroom'){
       drawBedroomFloor(room);
+    } else if(player.scene==='kitchen'){
+      drawKitchenFloor(room);
     } else {
       ctx.fillStyle = scene.floor;
       ctx.fillRect(room.x, room.y, room.w, room.h);
@@ -2915,6 +2960,14 @@
     // decor (background flavor, non-interactive)
     (scene.decor||[]).forEach(d=>{
       if(d.type==='tree'){ drawAnimatedTree(d); return; }
+      if(d.type==='kitchrug'){
+        ctx.fillStyle = '#ececec';
+        ctx.fillRect(d.x, d.y, d.w, d.h);
+        ctx.fillStyle = '#d4d4d4';
+        ctx.fillRect(d.x, d.y, d.w, 5);
+        ctx.fillRect(d.x, d.y+d.h-5, d.w, 5);
+        return;
+      }
       if(d.type==='roomsprite'){ drawRoomSprite(d.sprite, d.x, d.y, d.scale); return; }
       ctx.fillStyle = d.color;
       drawRoundedRect(d.x,d.y,d.w,d.h,d.round||8);
@@ -3087,14 +3140,7 @@
 
   function drawTable(obj){
     glowIf(obj,'#e8b06c');
-    ctx.fillStyle = '#8a5a34';
-    drawRoundedRect(obj.x, obj.y, obj.w, obj.h, 12);
-    ctx.fill();
-    ctx.strokeStyle='#5c3a1e'; ctx.lineWidth=3; ctx.stroke();
-    ctx.font='26px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('🍽️', obj.x+obj.w*0.3, obj.y+obj.h*0.5);
-    ctx.fillText('🍽️', obj.x+obj.w*0.7, obj.y+obj.h*0.5);
-    ctx.font='bold 12px sans-serif'; ctx.fillStyle='#ffe3b0';
+    drawRoomSprite('kitchen_table', obj.x, obj.y, obj.spriteScale || 3.4);
     unglow(obj);
   }
 
