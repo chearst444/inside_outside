@@ -75,19 +75,20 @@
   }
 
 
+  #hud, #interactPrompt, #roomName { display:none !important; }
   #dialogueBar{
     position:absolute;
-    left:28px; right:28px; bottom:8px;
-    height:58px;
+    left:18px; right:18px; bottom:6px;
+    height:28px;
     display:none;
     align-items:center;
     justify-content:center;
     pointer-events:none;
-    z-index:16;
+    z-index:30;
     border-style:solid;
-    border-width:12px 30px 12px 10px;
+    border-width:3px 14px 3px 6px;
     border-image-source:url(assets/ui/dialogue_bar.png);
-    border-image-slice:6 16 6 4 fill;
+    border-image-slice:4 18 4 6 fill;
     border-image-repeat:stretch;
     image-rendering:pixelated;
     image-rendering:crisp-edges;
@@ -95,16 +96,15 @@
   #dialogueText{
     font-family: Fredoka, Nunito, sans-serif;
     font-weight:600;
-    font-size:17px;
+    font-size:14px;
     color:#3b2414;
     text-align:center;
-    line-height:1.2;
-    padding:0 10px;
+    line-height:1.1;
+    padding:0 8px;
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
     max-width:100%;
-    text-shadow:0 1px 0 rgba(255,255,255,.35);
   }
   /* Overlays / modals */
   .overlay{
@@ -123,11 +123,11 @@
     width:520px; max-width:88%;
     max-height:90%; overflow-y:auto;
     /* html/body/#gameWrap all set touch-action:none (so dragging to move
-       doesn't trigger page scroll/zoom) — that restriction cascades down
+       doesn't trigger page scroll/zoom) ,  that restriction cascades down
        and silently blocks native touch-scrolling in here too unless this
        re-enables it. Without it, on short mobile viewports, anything
        pushed below the fold (buy buttons, the craft button, ...) becomes
-       untappable — no way to scroll down to it. */
+       untappable ,  no way to scroll down to it. */
     touch-action: pan-y;
     box-shadow:0 20px 60px rgba(0,0,0,.6);
   }
@@ -258,7 +258,7 @@
     text-shadow:0 2px 6px rgba(0,0,0,.6);
   }
 
-  /* mini race — a short, wide track fits a landscape phone without scrolling */
+  /* mini race ,  a short, wide track fits a landscape phone without scrolling */
   #racePanel{ width:440px; text-align:center; }
   #raceCanvas{
     display:block; margin:10px auto 0;
@@ -313,7 +313,7 @@
   body.touch-mode #interactPrompt kbd{ display:none; }
 
   /* Covers the whole play area: drag anywhere to move, a quick tap (little
-     to no movement) interacts with whatever's nearby — no on-screen button. */
+     to no movement) interacts with whatever's nearby ,  no on-screen button. */
   #joystickZone{
     position:absolute; inset:0;
     pointer-events:auto;
@@ -359,7 +359,7 @@
     .craftCols{ flex-direction:column; gap:14px; }
   }
 
-  /* Max's popup menu — a small context menu that floats right over him
+  /* Max's popup menu ,  a small context menu that floats right over him
      (positioned in % of the canvas so it tracks his position at any
      screen size), instead of a full centered modal. */
   #dogMenu{
@@ -380,14 +380,14 @@
   #dogMenu button:disabled{ opacity:.4; cursor:not-allowed; }
 
   /* Short landscape phones: the start screen's copy is the tallest panel
-     in the game, so trim it first — .panel's own overflow-y:auto is the
+     in the game, so trim it first ,  .panel's own overflow-y:auto is the
      fallback if it still doesn't fit. */
   @media (max-height: 420px){
     #startPanel h1{ font-size:20px; margin-bottom:2px; }
     #startPanel p{ font-size:12.5px; line-height:1.35; }
     #startPanel .keys{ margin:10px 0; }
     #startBtn{ padding:7px 22px; font-size:14px; }
-    /* Same idea for the richer modals — less fixed height reserved per
+    /* Same idea for the richer modals ,  less fixed height reserved per
        section leaves more of the panel's own scroll (now touch-scrollable)
        to actually show, instead of stacking scroll-within-scroll. */
     .panel{ padding:14px 16px; }
@@ -397,7 +397,7 @@
   }
 
   /* The game keeps its 3:2 landscape shape at any screen size, so a
-     portrait phone gets a small, letterboxed view — nudge toward landscape. */
+     portrait phone gets a small, letterboxed view ,  nudge toward landscape. */
   #rotateHint{ display:none; }
   @media (orientation: portrait){
     body.touch-mode #rotateHint{
@@ -437,6 +437,25 @@
             max-height: 100dvh;
             object-fit: contain;
         }
+        #sq-title {
+            position: absolute;
+            left: 0; right: 0;
+            top: 3.5%;
+            z-index: 4;
+            text-align: center;
+            font-family: Fredoka, Nunito, sans-serif;
+            font-weight: 700;
+            font-size: clamp(32px, 6.4vw, 72px);
+            letter-spacing: 0.08em;
+            color: #fff6e8;
+            text-shadow: 0 2px 0 #3b2414, 0 6px 16px rgba(0,0,0,.55), 0 0 2px #3b2414;
+            pointer-events: none;
+            line-height: 1;
+        }
+        #sq-open.is-book #sq-title {
+            top: 2.2%;
+            font-size: clamp(26px, 5vw, 56px);
+        }
         #sq-open .sq-howto { display: none !important; }
         #sq-book {
             position: absolute;
@@ -448,9 +467,16 @@
             z-index: 2;
         }
         #sq-open.is-book #sq-book { display: flex; }
+        #sq-book-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            width: min(92%, 560px);
+        }
         #sq-book-wrap {
             position: relative;
-            width: min(90%, 620px);
+            width: 100%;
         }
         #sq-book-art {
             display: block;
@@ -459,32 +485,29 @@
             image-rendering: pixelated;
             image-rendering: crisp-edges;
         }
-        #sq-book-pages {
-            position: absolute;
-            left: 11%;
-            right: 11%;
-            top: 16%;
-            bottom: 14%;
+        #sq-howto-line {
+            width: min(100%, 520px);
+            height: 28px;
             display: flex;
-            gap: 10%;
-            color: #3b2414;
-            font-family: Fredoka, Nunito, sans-serif;
-            pointer-events: none;
-        }
-        #sq-book-pages .pg {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
+            align-items: center;
             justify-content: center;
-            text-align: center;
-        }
-        #sq-book-pages p {
-            margin: 0 0 8px;
-            font-size: clamp(14px, 2.8vw, 20px);
+            border-style: solid;
+            border-width: 3px 14px 3px 6px;
+            border-image-source: url(assets/ui/dialogue_bar.png);
+            border-image-slice: 4 18 4 6 fill;
+            border-image-repeat: stretch;
+            image-rendering: pixelated;
+            font-family: Fredoka, Nunito, sans-serif;
             font-weight: 600;
-            line-height: 1.35;
+            font-size: 14px;
+            color: #3b2414;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-sizing: border-box;
         }
-        #sq-book-pages .sq-play { pointer-events: auto; }
+        #sq-book-col .sq-play { pointer-events: auto; margin-top: 2px; }
         #sq-open .sq-howto p {
             margin: 0 0 6px;
             font-size: clamp(15px, 3.4vw, 20px);
@@ -559,21 +582,16 @@
   </a>
 <div class="sq-stage" id="sq-art-screen">
     <img class="sq-art" src="assets/opening.jpg" alt="Inside Outside">
+    <div id="sq-title">INSIDE OUTSIDE</div>
     <div id="sq-book">
-      <div id="sq-book-wrap">
-        <img id="sq-book-art" src="assets/ui/book_turn.png" alt="">
-        <div id="sq-book-pages">
-          <div class="pg">
-            <p>Dig for treasures. Tap the mound.</p>
-            <p>Move the rock first.</p>
-          </div>
-          <div class="pg">
-            <p>Use gold coins to buy things for Max in the pet shop.</p>
-            <button type="button" class="sq-play" id="sq-play" aria-label="Play">
-              <img src="assets/btn_play.png" alt="PLAY" width="92" height="29">
-            </button>
-          </div>
+      <div id="sq-book-col">
+        <div id="sq-book-wrap">
+          <img id="sq-book-art" src="assets/ui/book_turn.png" alt="">
         </div>
+        <div id="sq-howto-line">Dig for treasures. Move the rock, then tap the mound.</div>
+        <button type="button" class="sq-play" id="sq-play" aria-label="Play">
+          <img src="assets/btn_play.png" alt="PLAY" width="92" height="29">
+        </button>
       </div>
     </div>
   </div>
@@ -615,7 +633,7 @@
     <div class="panel" id="startPanel">
       <h1>🏡 Inside/Outside</h1>
       <p>Dig up treasures and gold coins, craft them at your <b>Restoration Workbench</b>,
-      and play the puzzle and Pong in your bedroom — every win is worth a coin too!
+      and play the puzzle and Pong in your bedroom ,  every win is worth a coin too!
       Touch your dog <b>Max</b> to pet him or send him fetching, and spend coins at the yard's <b>Pet Shop</b>.</p>
       <div class="keys" id="keyboardHint">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows<br>Move</div>
@@ -677,12 +695,12 @@
     <div class="panel" style="width:640px;">
       <span class="closeBtn" id="petShopCloseBtn" style="pointer-events:auto;">Close ✕</span>
       <h2>🐾 Pet Shop</h2>
-      <div class="sub">Spend gold coins you've dug up outside — 1 coin buys any item.</div>
+      <div class="sub">Spend gold coins you've dug up outside ,  1 coin buys any item.</div>
       <div class="chip" id="shopCoinChip">🪙 Coins: <span id="shopCoinCount">0</span></div>
       <div id="shopCatalog"></div>
 
       <h3 class="shopCollectionHeading">Yard Setup</h3>
-      <div class="sub" style="margin-bottom:10px;">Swap in anything you own. Max eats whatever's set below (bring him inside first — food goes in the kitchen bowl) and plays with whatever's on the toy spot. Touch Max any time you own a ball to fetch — it doesn't need to be placed here. A collar is worn instead of played with, and your first bed goes straight to the bedroom.</div>
+      <div class="sub" style="margin-bottom:10px;">Swap in anything you own. Max eats whatever's set below (bring him inside first ,  food goes in the kitchen bowl) and plays with whatever's on the toy spot. Touch Max any time you own a ball to fetch ,  it doesn't need to be placed here. A collar is worn instead of played with, and your first bed goes straight to the bedroom.</div>
       <div id="yardSetup">
         <label>Food Bowl (kitchen) <select id="equipBowl"></select></label>
         <label>Doghouse (yard) <select id="equipHouse"></select></label>
@@ -702,7 +720,7 @@
     <div class="panel" id="racePanel">
       <span class="closeBtn" id="raceCloseBtn" style="pointer-events:auto;">Close ✕</span>
       <h2>🏓 Pong</h2>
-      <div class="sub">Drag up/down to move your paddle — keep the rally going 5 seconds for a coin!</div>
+      <div class="sub">Drag up/down to move your paddle ,  keep the rally going 5 seconds for a coin!</div>
       <canvas id="raceCanvas" width="380" height="170"></canvas>
       <div id="raceResult"></div>
     </div>
@@ -727,12 +745,13 @@
   const CANVAS_W = 900, CANVAS_H = 600, WALL = 24;
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  const BOY_KEYS = [
-    'walk_0','walk_1','walk_2','walk_3','idle_0','idle_1','idle_2','fall_0',
-    'blow_1','blow_2','blow_3','blow_4','blow_pop',
-    'walk_0_r','walk_1_r','walk_2_r','walk_3_r','idle_0_r','idle_1_r','idle_2_r','fall_0_r',
-    'blow_1_r','blow_2_r','blow_3_r','blow_4_r'
-  ];
+  const BOY_DIRS = ['down','left','right','up'];
+  const BOY_KEYS = [];
+  for(const d of BOY_DIRS){
+    BOY_KEYS.push('idle_'+d);
+    for(let i=0;i<8;i++) BOY_KEYS.push('walk_'+d+'_'+i);
+    for(let i=0;i<5;i++) BOY_KEYS.push('dig_'+d+'_'+i);
+  }
   const boyImgs = {};
   for(const k of BOY_KEYS){
     const im = new Image();
@@ -761,6 +780,9 @@
     if(!im || !im.complete || !im.naturalWidth) return;
     const sc = scale || 2;
     ctx.drawImage(im, x, y, im.naturalWidth*sc, im.naturalHeight*sc);
+  }
+  function drawBedroomChest(obj){
+    drawPet('chest', obj.x, obj.y, 3.6);
   }
 
   ctx.imageSmoothingEnabled = false; // keep the dog's pixel-art sprites crisp
@@ -821,7 +843,7 @@
     s.img.src = s.src;
   }
 
-  // The full purchasable catalog — one gold coin buys any single item here.
+  // The full purchasable catalog ,  one gold coin buys any single item here.
   // The starter food bowl / doghouse / bone (placed for free below) are the
   // one variant from each of those sheets that's deliberately left out.
   const SHOP_ITEMS = [
@@ -911,17 +933,12 @@
     {id:"dino_foot", kind:"dino", sprite:"dino_foot"},
     {id:"dino_arm", kind:"dino", sprite:"dino_arm"},
     {id:"pot_a", kind:"loot", sprite:"pot_a", name:"clay pot"},
-    {id:"pot_b", kind:"loot", sprite:"pot_b", name:"clay urn"},
-    {id:"pot_c", kind:"loot", sprite:"pot_c", name:"tall pot"},
-    {id:"pot_d", kind:"loot", sprite:"pot_d", name:"wide pot"},
-    {id:"chest", kind:"loot", sprite:"chest", name:"chest"},
+    {id:"chest", kind:"loot", sprite:"chest", name:"chest", bedroom:true},
     {id:"fossil_fish", kind:"loot", sprite:"fossil_fish", name:"fish fossil"},
-    {id:"fossil_skull", kind:"loot", sprite:"fossil_skull", name:"skull fossil"},
-    {id:"crown", kind:"loot", sprite:"crown", name:"crown"},
     {id:"gem_find", kind:"loot", sprite:"gem", name:"gem"},
-    {id:"dagger", kind:"loot", sprite:"dagger", name:"dagger"},
     {id:"coin", kind:"coin", sprite:"coin_find", name:"gold coin"}
   ];
+  const BEDROOM_CHEST = {x:620, y:300};
   const dinoFound = {};
   let museumReady = false;
   const MUSEUM = {x:195, y:348};
@@ -984,7 +1001,7 @@
         if(player.scene===dog.scene && dog.scene==="outside" && Math.random()<0.0025){
           b.state = "land";
           b.landUntil = now + 1600;
-          showToast("Max wags his tail");
+          showToast("Max wags his tail.");
         }
         if(b.x < -30 || b.x > 930){
           b.state = "wait";
@@ -1026,10 +1043,6 @@
     if(museumReady){
       drawPet("dino_exhibit_a", MUSEUM.x, MUSEUM.y-8, 1.3);
       drawPet("dino_exhibit_b", MUSEUM.x+90, MUSEUM.y-8, 1.3);
-      ctx.font = "700 14px Fredoka, Nunito, sans-serif";
-      ctx.fillStyle = "#3b2a1a";
-      ctx.textAlign = "center";
-      ctx.fillText("My Dino", MUSEUM.x+85, MUSEUM.y-14);
     } else {
       for(const piece of EXHIBIT_A){
         if(dinoFound[piece.id]) drawPet(piece.id, MUSEUM.x+piece.dx, MUSEUM.y+piece.dy, 2.3);
@@ -1038,6 +1051,7 @@
         if(dinoFound[piece.id]) drawPet(piece.id, MUSEUM.x+90+piece.dx, MUSEUM.y+piece.dy, 2.3);
       }
     }
+    /* furniture chest is a bedroom object; dug-up chest stays in inventory */
   }
 
   for(const f of DIG_FINDS){
@@ -1064,7 +1078,7 @@
     'key+shard':  {name:'Star-Etched Key',        emoji:'🔑', flavor:"The shard's star pattern is carefully etched into the key's blade."},
     'pot+shard':  {name:'Starlit Urn',            emoji:'🏮', flavor:'The pot is restored to a soft glow, its glaze catching the light like starlight.'},
   };
-  // Combining two of the same treasure — named per-treasure instead of a
+  // Combining two of the same treasure ,  named per-treasure instead of a
   // generic "Twin X", so it still feels like a distinct, worthwhile prize.
   // (coin+coin is handled separately, as pure gold, above TWIN_RESULTS.)
   const TWIN_RESULTS = {
@@ -1083,8 +1097,8 @@
   ];
   const DOG_NAME = 'Max';
   const DOG_FLAVORS = [
-    'Max is happy',
-    'Max wags his tail',
+    'Max is happy.',
+    'Max wags his tail.',
   ];
 
   // ---------- Scenes ----------
@@ -1101,13 +1115,13 @@
       ],
       objects: [
         digSpot(200,120,'dig1',0),
-        digSpot(360,460,'dig2',1),
-        digSpot(560,140,'dig3',2),
-        digSpot(660,470,'dig4',3),
-        digSpot(430,300,'dig5',4),
-        coinSpot(780,250,'coin1',5),
-        coinSpot(500,470,'coin2',0),
-        coinSpot(150,360,'coin3',2),
+        digSpot(360,460,'dig2',2),
+        digSpot(560,140,'dig3',3),
+        digSpot(660,470,'dig4',4),
+        digSpot(430,300,'dig5',5),
+        coinSpot(780,250,'coin1',0),
+        coinSpot(500,470,'coin2',2),
+        coinSpot(150,360,'coin3',3),
         petShopStandObj(400,60),
       ]
     },
@@ -1140,12 +1154,13 @@
       ],
       decor: [],
       objects: [
-        bedObj(180,108,220,140),
+        bedObj(190,90,300,180),
         toyObj(430,118,'🧸','#ff9f7a','toy1'),
         raceBallObj(515,118),
         toyObj(600,118,'🚗','#ffe27a','toy3'),
         puzzleToyObj(430,190),
         toyObj(515,190,'🪀','#ff7ac6','toy5'),
+        chestObj(640,300),
         toolBenchObj(590,385),
       ]
     }
@@ -1160,7 +1175,7 @@
       promptLabel:'Dig for treasure', dug:false, cooldownUntil:0, rockOn:true, rockKind:(rockKind||0), rockOx:0, rockOy:0};
   }
   // Same as a regular dig spot, but always turns up a gold coin instead of
-  // a random treasure — dedicated coin sources for the Pet Shop economy.
+  // a random treasure ,  dedicated coin sources for the Pet Shop economy.
   function coinSpot(x,y,id,rockKind){
     return {id,type:'dig', x,y, w:56,h:44, interactRadius:60,
       promptLabel:'Dig for a Gold Coin', dug:false, cooldownUntil:0, guaranteedCoin:true, rockOn:true, rockKind:(rockKind==null?5:rockKind), rockOx:0, rockOy:0};
@@ -1186,6 +1201,9 @@
     return {id:'bed', type:'bed', x,y, w:bw, h:bh, interactRadius:Math.max(120, bw*0.5),
       promptLabel:'Take a Nap'};
   }
+  function chestObj(x,y){
+    return {id:'bedroom_chest', type:'chest', x,y, w:72, h:61};
+  }
   function tableObj(x,y){
     return {id:'table', type:'table', x,y, w:190,h:90, interactRadius:110,
       promptLabel:'Sit and Eat'};
@@ -1200,19 +1218,19 @@
   }
 
   // ---------- Player / state ----------
-  const player = { type:'player', scene:'outside', x:120, y:300, radius:16, speed:3.2, facing:'right', animFrame:0, animAcc:0, blowUntil:0 };
+  const player = { type:'player', scene:'outside', x:120, y:300, radius:30, speed:3.4, facing:'right', dir:'down', animFrame:0, animAcc:0, digUntil:0, pendingFind:null };
 
   // The dog lives in the yard (the 'outside' scene), wandering on its own
   // between idle/sniff/sit/lie/sleep poses and walking to a new spot.
   const dog = {
-    type:'dog', scene:'outside', x:520, y:380, facing:1, size:88,
+    type:'dog', scene:'outside', x:520, y:380, facing:1, size:168,
     anim:'idle', animStart:Date.now(),
     state:'idle', stateUntil:Date.now()+1500,
     tx:520, ty:380,
     barkUntil:0,
     isFetch:false, // true only while chasing down a ball you actually threw (vs. ambient play)
     throwTime:0,
-    interactRadius:70, promptLabel:'Play with Max',
+    interactRadius:120, promptLabel:'Play with Max',
   };
   let ballThrowPos = null; // where a thrown ball currently sits/is being carried; null = ball's at rest on the toy spot
   const keys = {};
@@ -1222,9 +1240,9 @@
   let napping = false;
   const inventory = []; // array of treasure ids
   const creations = []; // array of {name, emoji}
-  const petInventory = []; // array of purchased Pet Shop item ids — the "inventory of selections"
+  const petInventory = []; // array of purchased Pet Shop item ids ,  the "inventory of selections"
   // Which owned item (by id) is currently placed/displayed in each world
-  // slot — null means "show the free default" (bowl/house) or "nothing
+  // slot ,  null means "show the free default" (bowl/house) or "nothing
   // placed there" (food/toy). Swapped via the dropdowns in the Pet Shop.
   const equipped = { bowl:null, house:null, food:null, toy:null, collar:null, bed:null };
   const KITCHEN_BOWL_POS = {x:680, y:155};
@@ -1247,7 +1265,7 @@
     collar_navy:   '#1c2440',
   };
 
-  // All placed food — Dog Food and Meat Treats alike — goes in the kitchen
+  // All placed food ,  Dog Food and Meat Treats alike ,  goes in the kitchen
   // bowl now; Max has to be brought inside to eat it. Returns null if
   // nothing's set.
   function getFoodTarget(){
@@ -1310,7 +1328,7 @@
 
   // Touch controls: drag anywhere to move (a virtual joystick that recenters
   // under the finger on touchstart, so it works wherever it lands), and a
-  // quick tap — one that barely moves — interacts with whatever's nearby,
+  // quick tap ,  one that barely moves ,  interacts with whatever's nearby,
   // same as pressing E. No separate button; the whole play area is live.
   const joyZone = document.getElementById('joystickZone');
   const joyBase = document.getElementById('joystickBase');
@@ -1389,6 +1407,7 @@
     const so = document.getElementById('startOverlay');
     if(so) so.classList.add('hidden');
     modalOpen = false;
+    showToast(SCENES[player.scene].name);
   });
 
   function closeAllModals(){
@@ -1406,6 +1425,13 @@
   // ---------- Toasts ----------
   let dialogueGen = 0;
   function showToast(msg){
+    if(!msg) return;
+    msg = String(msg);
+    if(msg === 'Max is happy') msg = 'Max is happy.';
+    if(msg === 'Max wags his tail') msg = 'Max wags his tail.';
+    if(/\bMax\b/i.test(msg) && msg !== 'Max is happy.' && msg !== 'Max wags his tail.'){
+      return;
+    }
     const bar = document.getElementById('dialogueBar');
     const text = document.getElementById('dialogueText');
     if(!bar || !text) return;
@@ -1416,13 +1442,13 @@
       if(gen !== dialogueGen) return;
       bar.style.display = 'none';
       text.textContent = '';
-    }, 2400);
+    }, 2800);
   }
 
   // ---------- Movement / transitions ----------
   function switchScene(target, spawn){
     // Max tags along through any door as long as he's in the room you're
-    // leaving — he doesn't need to be right next to you, just somewhere
+    // leaving ,  he doesn't need to be right next to you, just somewhere
     // in the same scene. Otherwise he stays behind in whatever room he's in.
     if(dog.scene===player.scene){
       dog.scene = target;
@@ -1438,6 +1464,7 @@
     player.y = spawn.y;
     nearbyObject = null;
     document.getElementById('roomName').textContent = SCENES[target].name;
+    showToast(SCENES[target].name);
   }
 
   function updatePlayer(){
@@ -1476,8 +1503,20 @@
         }
       }
     }
-    if(dx > 0.2) player.facing = 'right';
-    else if(dx < -0.2) player.facing = 'left';
+    if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 0.15){
+      player.dir = dx>0 ? 'right' : 'left';
+      player.facing = player.dir;
+    } else if(Math.abs(dy) > 0.15){
+      player.dir = dy>0 ? 'down' : 'up';
+      player.facing = player.dir==='right' || player.dir==='left' ? player.dir : player.facing;
+    }
+    if(player.scene==='kitchen'){
+      const t = scene.objects.find(o=>o.type==='table');
+      if(t){
+        const hit = nx>t.x-r && nx<t.x+t.w+r && ny>t.y-r && ny<t.y+t.h+r;
+        if(hit){ nx = player.x; ny = player.y; }
+      }
+    }
     if(dx||dy) player.animAcc += 0.18;
     player.animFrame = Math.floor(player.animAcc);
 
@@ -1493,7 +1532,7 @@
     if(dog.anim!==name){ dog.anim=name; dog.animStart=Date.now(); }
   }
 
-  // Every state maps to one of the sprite sheets — states with no sprite of
+  // Every state maps to one of the sprite sheets ,  states with no sprite of
   // their own (walking somewhere, eating, playing, grabbing the ball) borrow
   // the closest-looking pose instead.
   const STATE_ANIM = {
@@ -1515,7 +1554,7 @@
   function pickDogState(){
     const now = Date.now();
     // If there's food or a toy out, the dog occasionally wanders over to it
-    // on its own — on top of you being able to call it over directly by
+    // on its own ,  on top of you being able to call it over directly by
     // clicking the food spot, or clicking the dog itself to throw a ball.
     const foodTarget = getFoodTarget();
     if(foodTarget && dog.scene===foodTarget.scene && Math.random()<0.16){
@@ -1533,6 +1572,12 @@
       const rm = sceneRect(dog.scene);
       dog.tx = rm.x+90+Math.random()*Math.max(40, rm.w-180);
       dog.ty = rm.y+80+Math.random()*Math.max(40, rm.h-160);
+      if(dog.scene==='kitchen'){
+        const t = SCENES.kitchen.objects.find(o=>o.type==='table');
+        if(t && dog.tx>t.x-20 && dog.tx<t.x+t.w+20 && dog.ty>t.y-20 && dog.ty<t.y+t.h+20){
+          dog.ty = t.y + t.h + 50;
+        }
+      }
       dog.stateUntil = now+8000; // safety timeout if it never quite reaches tx/ty
     } else if(r<0.6){ dog.state='sniff'; dog.stateUntil=now+2500+Math.random()*2000; }
     else if(r<0.8){ dog.state='sit';   dog.stateUntil=now+2500+Math.random()*2500; }
@@ -1540,7 +1585,7 @@
     else { dog.state='sleep'; dog.stateUntil=now+6000+Math.random()*4000; }
   }
 
-  // You have to actually own a ball for this — thrown from wherever Max
+  // You have to actually own a ball for this ,  thrown from wherever Max
   // currently is, landing somewhere out in the yard for him to chase.
   function throwBall(){
     const it = shopItemById[equipped.toy];
@@ -1574,7 +1619,7 @@
 
   // Calls Max straight over to eat, instead of waiting for him to wander
   // there on his own. Meat treats need him inside; dog food needs him out
-  // in the yard — he can only be called from the room he's actually in.
+  // in the yard ,  he can only be called from the room he's actually in.
   function callDogToEat(){
     const ft = getFoodTarget();
     if(!ft) return;
@@ -1586,7 +1631,7 @@
     dog.state='goEat'; dog.tx=ft.pos.x; dog.ty=ft.pos.y; dog.stateUntil=Date.now()+9000;
   }
 
-  // Sends Max to lie down on his bed — only works once you own one and
+  // Sends Max to lie down on his bed ,  only works once you own one and
   // he's actually in the bedroom to begin with.
   function callDogToBed(){
     if(!equipped.bed) return;
@@ -1652,7 +1697,16 @@
         dogArrived();
       } else {
         const spd = dog.state==='return' ? 1.6 : 1.3;
-        dog.x += dx/d*spd; dog.y += dy/d*spd;
+        let nx = dog.x + dx/d*spd, ny = dog.y + dy/d*spd;
+        if(dog.scene==='kitchen'){
+          const t = SCENES.kitchen.objects.find(o=>o.type==='table');
+          const rad = dog.size*0.28;
+          if(t && nx>t.x-rad && nx<t.x+t.w+rad && ny>t.y-rad && ny<t.y+t.h+rad){
+            nx = dog.x; ny = dog.y;
+            if(dog.state==='walk'){ dog.state='idle'; dog.stateUntil=now+400; }
+          }
+        }
+        dog.x = nx; dog.y = ny;
         dog.facing = dx<0 ? -1 : 1;
       }
     } else if(now >= dog.stateUntil){
@@ -1671,7 +1725,7 @@
   }
 
   // ---------- Max's popup menu (Pet / Fetch) ----------
-  // Touching Max always opens this instead of acting immediately — Fetch is
+  // Touching Max always opens this instead of acting immediately ,  Fetch is
   // enabled as soon as you own ANY ball from the Pet Shop (it doesn't need
   // to already be the yard's placed toy; picking Fetch places it there).
   function openDogMenu(){
@@ -1707,7 +1761,7 @@
   });
 
   // The food spot only exists as a clickable/nearby thing while food is
-  // actually equipped — its box is sized to whatever item is placed there,
+  // actually equipped ,  its box is sized to whatever item is placed there,
   // and it only shows up in the room that item is actually placed in.
   function getFoodSpotObj(){
     const ft = getFoodTarget();
@@ -1718,7 +1772,7 @@
       interactRadius:70, promptLabel:'Call Max to Eat'};
   }
 
-  // Same idea as the food spot, but for the bed — only clickable once
+  // Same idea as the food spot, but for the bed ,  only clickable once
   // you've bought one, and only shows up in the bedroom.
   function getBedSpotObj(){
     if(!equipped.bed || player.scene!=='bedroom') return null;
@@ -1767,14 +1821,7 @@
     nearbyObject = found;
 
     const promptEl = document.getElementById('interactPrompt');
-    if(!modalOpen && nearbyObject){
-      let plabel = nearbyObject.promptLabel;
-      if(nearbyObject.type==='dig' && nearbyObject.rockOn) plabel = 'Move the rock.';
-      document.getElementById('promptText').textContent = plabel;
-      promptEl.style.display = 'block';
-    } else {
-      promptEl.style.display = 'none';
-    }
+    if(promptEl) promptEl.style.display = 'none';
   }
 
   function doInteract(){
@@ -1794,12 +1841,11 @@
     else if(obj.type==='foodspot') callDogToEat();
     else if(obj.type==='puzzle') openPuzzle();
     else if(obj.type==='dogbedspot') callDogToBed();
-    else if(obj.type==='player') startBlow();
   }
 
   // ---------- Click / tap directly on something ----------
   // Lets you click or tap an object right on the screen (the dog, the pet
-  // shop stand, etc.) instead of having to walk up to it first — the
+  // shop stand, etc.) instead of having to walk up to it first ,  the
   // walk-up-and-press-E flow above still works the same as always.
   function objectContainsPoint(obj, px, py){
     if(obj.type==='dog') return Math.hypot(px-obj.x, py-obj.y) < obj.size*0.6;
@@ -1820,7 +1866,6 @@
     if(fs && objectContainsPoint(fs, px, py)) return fs;
     const bs = getBedSpotObj();
     if(bs && objectContainsPoint(bs, px, py)) return bs;
-    if(objectContainsPoint(player, px, py)) return player;
     return null;
   }
   // Converts a page-space (clientX/clientY) point to the canvas's internal
@@ -1847,21 +1892,7 @@
     obj.rockOy = -10;
   }
 
-  function handleDig(spot){
-    if(spot.dug && Date.now()<spot.cooldownUntil){
-      showToast('Nothing here yet. Try again later.');
-      return;
-    }
-    let find = null;
-    if(spot.guaranteedCoin){
-      find = DIG_FINDS.find(f=>f.kind==="coin");
-    } else {
-      const missingDino = DIG_FINDS.filter(f=>f.kind==="dino" && !dinoFound[f.id]);
-      const missingLoot = DIG_FINDS.filter(f=>f.kind==="loot" && !inventory.includes(f.id));
-      if(missingDino.length) find = missingDino[0];
-      else if(missingLoot.length) find = missingLoot[Math.floor(Math.random()*missingLoot.length)];
-      else find = DIG_FINDS.find(f=>f.kind==="coin");
-    }
+  function finishDig(spot, find){
     inventory.push(find.id);
     spot.dug = true;
     spot.cooldownUntil = Date.now()+20000;
@@ -1877,10 +1908,30 @@
       }
     } else if(find.kind==="coin"){
       showToast('You found a gold coin.');
+      lastCoinShown = coinCount();
     } else {
-      showToast('You found a ' + find.name + '.');
+      const nm = (find.name || (treasureById[find.id] && treasureById[find.id].name) || 'treasure');
+      showToast('You found a ' + nm + '.');
     }
     updateCoinChip();
+  }
+  function handleDig(spot){
+    if(Date.now() < player.digUntil) return;
+    if(spot.dug && Date.now()<spot.cooldownUntil){
+      return;
+    }
+    let find = null;
+    if(spot.guaranteedCoin){
+      find = DIG_FINDS.find(f=>f.kind==="coin");
+    } else {
+      const missingDino = DIG_FINDS.filter(f=>f.kind==="dino" && !dinoFound[f.id]);
+      const missingLoot = DIG_FINDS.filter(f=>f.kind==="loot" && !inventory.includes(f.id));
+      if(missingDino.length) find = missingDino[0];
+      else if(missingLoot.length) find = missingLoot[Math.floor(Math.random()*missingLoot.length)];
+      else find = DIG_FINDS.find(f=>f.kind==="coin");
+    }
+    player.digUntil = Date.now()+720;
+    player.pendingFind = {spot, find};
   }
 
     // ---------- Particles ----------
@@ -2027,7 +2078,7 @@
     const list = document.getElementById('treasureList');
     list.innerHTML = '';
     if(inventory.length===0){
-      list.innerHTML = '<div id="emptyTreasureNote">No treasures yet — dig some up outside first!</div>';
+      list.innerHTML = '<div id="emptyTreasureNote">No treasures yet ,  dig some up outside first!</div>';
     }
     inventory.forEach((id, idx)=>{
       const t = treasureById[id];
@@ -2086,10 +2137,10 @@
     selectedIdx = [];
 
     if(id1==='coin' && id2==='coin'){
-      // Merchant's Fortune doesn't become a trophy creation — it's straight
+      // Merchant's Fortune doesn't become a trophy creation ,  it's straight
       // gold, spendable at the Pet Shop like any other dug-up coin.
       inventory.push('coin','coin','coin');
-      document.getElementById('craftResult').textContent = `💰 Merchant's Fortune! Two coins multiply into three — +3 🪙`;
+      document.getElementById('craftResult').textContent = `💰 Merchant's Fortune! Two coins multiply into three ,  +3 🪙`;
     } else {
       let result;
       if(id1===id2){
@@ -2100,7 +2151,7 @@
       }
       creations.push({name:result.name, emoji:result.emoji});
       inventory.push('coin'); // every successful craft, any combination, is also worth a gold coin
-      document.getElementById('craftResult').textContent = `${result.emoji} Crafted: ${result.name}! — ${result.flavor} (+1 🪙)`;
+      document.getElementById('craftResult').textContent = `${result.emoji} Crafted: ${result.name}! ,  ${result.flavor} (+1 🪙)`;
       document.getElementById('creationCount').textContent = creations.length;
     }
     spawnCraftBurst();
@@ -2111,9 +2162,15 @@
   // ---------- Pet Shop ----------
   function coinCount(){ return inventory.filter(id=>id==='coin').length; }
 
+  let lastCoinShown = -1;
   function updateCoinChip(){
-    document.getElementById('coinCount').textContent = coinCount();
+    const n = coinCount();
+    document.getElementById('coinCount').textContent = n;
     document.getElementById('petItemCount').textContent = petInventory.length;
+    if(lastCoinShown >= 0 && n !== lastCoinShown){
+      showToast('Coins: ' + n);
+    }
+    lastCoinShown = n;
   }
 
   function shopIconStyle(sheet, sx, sy, sw, sh, scale){
@@ -2168,7 +2225,7 @@
     const coll = document.getElementById('shopCollection');
     coll.innerHTML = '';
     if(petInventory.length===0){
-      coll.innerHTML = '<div id="emptyTreasureNote">Nothing purchased yet — buy something above!</div>';
+      coll.innerHTML = '<div id="emptyTreasureNote">Nothing purchased yet ,  buy something above!</div>';
     } else {
       petInventory.forEach(id=>{
         const it = shopItemById[id];
@@ -2183,16 +2240,16 @@
     renderYardSetup();
   }
 
-  // One dropdown per world slot — lists whatever you own in the matching
+  // One dropdown per world slot ,  lists whatever you own in the matching
   // categories, plus a "default / none" option. Picking one updates
   // `equipped` immediately; drawScene reads it fresh every frame.
   const YARD_SLOTS = [
-    {select:'equipBowl',  slot:'bowl',   categories:['Food Bowls'], defaultLabel:'Default — Green Food Bowl'},
+    {select:'equipBowl',  slot:'bowl',   categories:['Food Bowls'], defaultLabel:'Default ,  Green Food Bowl'},
     {select:'equipHouse', slot:'house',  categories:['Doghouses'],  defaultLabel:'Default: Brown Doghouse'},
-    {select:'equipFood',  slot:'food',   categories:['Dog Food','Meat Treats'], defaultLabel:'— None (empty spot) —'},
-    {select:'equipToy',   slot:'toy',    categories:['Balls','Chew Bones','Rope Toys'], defaultLabel:'— None (empty spot) —'},
-    {select:'equipCollar',slot:'collar', categories:['Collars'], defaultLabel:'— None —'},
-    {select:'equipBed',   slot:'bed',    categories:['Beds'], defaultLabel:'— None —'},
+    {select:'equipFood',  slot:'food',   categories:['Dog Food','Meat Treats'], defaultLabel:',  None (empty spot) , '},
+    {select:'equipToy',   slot:'toy',    categories:['Balls','Chew Bones','Rope Toys'], defaultLabel:',  None (empty spot) , '},
+    {select:'equipCollar',slot:'collar', categories:['Collars'], defaultLabel:',  None , '},
+    {select:'equipBed',   slot:'bed',    categories:['Beds'], defaultLabel:',  None , '},
   ];
   function renderYardSetup(){
     YARD_SLOTS.forEach(({select, slot, categories, defaultLabel})=>{
@@ -2228,7 +2285,7 @@
     }
     inventory.splice(coinIdx,1);
     petInventory.push(item.id);
-    // Your first bed goes straight into the bedroom — no dropdown needed.
+    // Your first bed goes straight into the bedroom ,  no dropdown needed.
     if(item.category==='Beds' && !equipped.bed){
       equipped.bed = item.id;
       showToast(`Bought the ${item.name}! 🐾 It's set up in the bedroom.`);
@@ -2539,6 +2596,7 @@
       else if(obj.type==='raceball') drawRaceBall(obj);
       else if(obj.type==='petshop') drawPetShopStand(obj);
       else if(obj.type==='puzzle') drawPuzzleToy(obj);
+      else if(obj.type==='chest') drawBedroomChest(obj);
     }
 
     // The bowl/doghouse/food/toy are drawn straight from `equipped` rather
@@ -2598,12 +2656,7 @@
       ctx.beginPath(); ctx.ellipse(cx,cy+6,obj.w/2,obj.h/2.6,0,0,Math.PI*2); ctx.fill();
       ctx.fillStyle = '#8f6238';
       ctx.beginPath(); ctx.ellipse(cx,cy,obj.w/2-4,obj.h/2.6-4,0,0,Math.PI*2); ctx.fill();
-      ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('⛏️', cx, cy-2);
-      if(obj.guaranteedCoin){
-        ctx.font='16px serif';
-        ctx.fillText('🪙', cx+obj.w/2-6, cy-obj.h/2+2);
-      }
+      if(obj.guaranteedCoin){ /* coin mound, no overlay text */ }
     }
     const rk = 'rock_' + (obj.rockKind||0);
     const rx = obj.x + (obj.rockOx||0);
@@ -2622,7 +2675,7 @@
   const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
   // A page-a-day calendar: always shows today's real date, no need to open
-  // it just to check — computed fresh every frame so it rolls over on its own.
+  // it just to check ,  computed fresh every frame so it rolls over on its own.
   function drawCalendarSprite(obj){
     glowIf(obj,'#ffcf4a');
     const today = new Date();
@@ -2638,7 +2691,6 @@
     ctx.font='bold 26px sans-serif'; ctx.fillStyle='#333';
     ctx.fillText(String(today.getDate()), obj.x+obj.w/2, obj.y+16+(obj.h-16)/2+1);
     ctx.font='bold 11px sans-serif'; ctx.fillStyle='#f5f2ea';
-    ctx.fillText('CALENDAR', obj.x+obj.w/2, obj.y-8);
     unglow(obj);
   }
 
@@ -2702,7 +2754,6 @@
     ctx.fillText('🪚', obj.x+obj.w*0.45, obj.y+obj.h*0.7);
 
     ctx.font='bold 12px sans-serif'; ctx.fillStyle='#ffd9a0';
-    ctx.fillText('WORKBENCH', obj.x+obj.w/2, obj.y-22);
     unglow(obj);
   }
 
@@ -2726,7 +2777,6 @@
     ctx.fillText('🍽️', obj.x+obj.w*0.3, obj.y+obj.h*0.5);
     ctx.fillText('🍽️', obj.x+obj.w*0.7, obj.y+obj.h*0.5);
     ctx.font='bold 12px sans-serif'; ctx.fillStyle='#ffe3b0';
-    ctx.fillText('TABLE', obj.x+obj.w/2, obj.y-16);
     unglow(obj);
   }
 
@@ -2767,7 +2817,6 @@
     ctx.fillText('🪙', obj.x+obj.w*0.68, obj.y+obj.h*0.45);
 
     ctx.font='bold 12px sans-serif'; ctx.fillStyle='#d6fff3';
-    ctx.fillText('PET SHOP', obj.x+obj.w/2, obj.y-22);
     unglow(obj);
   }
 
@@ -2791,7 +2840,7 @@
       ctx.restore();
     }
 
-    // Collars are worn, not placed as a toy — a colored band with a
+    // Collars are worn, not placed as a toy ,  a colored band with a
     // dangling tag, roughly at the neck (approximate: the sprites don't
     // have a dedicated collar layer to swap in).
     if(equipped.collar){
@@ -2814,32 +2863,18 @@
     unglow(dog);
   }
 
-  function startBlow(){
-    if(Date.now() < player.blowUntil) return;
-    player.blowUntil = Date.now()+820;
-  }
-
   function drawPlayer(){
     const now = Date.now();
-    const right = player.facing === 'right';
-    const idle = right ? ['idle_0','idle_1','idle_2'] : ['idle_0_r','idle_1_r','idle_2_r'];
-    const walk = right ? ['walk_0','walk_1','walk_2','walk_3'] : ['walk_0_r','walk_1_r','walk_2_r','walk_3_r'];
-    const blow = right
-      ? ['blow_1','blow_2','blow_3','blow_4','blow_pop']
-      : ['blow_1_r','blow_2_r','blow_3_r','blow_4_r','blow_pop'];
+    const d = player.dir || 'down';
     let key;
-    const blowing = now < player.blowUntil;
-    if(blowing){
-      const elapsed = 820 - (player.blowUntil - now);
-      if(elapsed < 140) key = blow[0];
-      else if(elapsed < 280) key = blow[1];
-      else if(elapsed < 430) key = blow[2];
-      else if(elapsed < 640) key = blow[3];
-      else key = blow[4];
+    if(now < player.digUntil){
+      const elapsed = 720 - (player.digUntil - now);
+      const fi = Math.min(4, Math.floor(elapsed / 144));
+      key = 'dig_'+d+'_'+fi;
     } else if(keys['arrowleft']||keys['a']||keys['arrowright']||keys['d']||keys['arrowup']||keys['w']||keys['arrowdown']||keys['s']||touchVec.dx||touchVec.dy){
-      key = walk[player.animFrame % walk.length];
+      key = 'walk_'+d+'_'+(player.animFrame % 8);
     } else {
-      key = idle[Math.floor(now/380) % idle.length];
+      key = 'idle_'+d;
     }
     const img = boyImgs[key];
     const feetY = player.y + player.radius;
@@ -2847,33 +2882,11 @@
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     if(img && img.complete && img.naturalWidth){
-      const targetHeight = 52;
+      const targetHeight = 100;
       const scale = targetHeight / img.naturalHeight;
       const drawW = img.naturalWidth * scale;
       const drawH = targetHeight;
       ctx.drawImage(img, centerX - drawW/2, feetY - drawH, drawW, drawH);
-    }
-    if(blowing){
-      const elapsed = 820 - (player.blowUntil - now);
-      if(elapsed < 280){
-        const t = elapsed / 280;
-        const rad = 5 + t * 9;
-        const mouthX = centerX + (right ? 11 : -11);
-        const mouthY = feetY - 38;
-        ctx.fillStyle = '#ff5a7a';
-        ctx.beginPath();
-        ctx.arc(mouthX, mouthY, rad, 0, Math.PI*2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.beginPath();
-        ctx.arc(mouthX + (right ? -rad*0.28 : rad*0.28), mouthY - rad*0.32, rad*0.28, 0, Math.PI*2);
-        ctx.fill();
-        ctx.strokeStyle = '#c2185b';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(mouthX, mouthY, rad, 0, Math.PI*2);
-        ctx.stroke();
-      }
     }
     ctx.restore();
   }
@@ -2884,6 +2897,11 @@
     updateDog();
     updateButterflies();
     updateInteractables();
+    if(player.pendingFind && Date.now() >= player.digUntil){
+      const pf = player.pendingFind;
+      player.pendingFind = null;
+      finishDig(pf.spot, pf.find);
+    }
     drawScene();
     requestAnimationFrame(loop);
   }
@@ -2898,6 +2916,16 @@
   var btn = document.getElementById('sq-play');
   if (!overlay) return;
   var bookShown = false;
+  var howto = [
+    'Dig for treasures. Move the rock, then tap the mound.',
+    'Use gold coins to buy things for Max in the pet shop.',
+    'Find all the dinosaur bones and you can have your very own museum.'
+  ];
+  var howtoI = 0;
+  function paintHowto(){
+    var el = document.getElementById('sq-howto-line');
+    if(el) el.textContent = howto[howtoI % howto.length];
+  }
   function showBook() {
     if (bookShown || overlay.classList.contains('is-off')) return;
     bookShown = true;
@@ -2907,6 +2935,12 @@
       img.src = 'assets/ui/book_turn.png';
       setTimeout(function () { img.src = 'assets/ui/book_open.png'; }, 240);
     }
+    paintHowto();
+    setInterval(function(){
+      if(overlay.classList.contains('is-off')) return;
+      howtoI += 1;
+      paintHowto();
+    }, 2600);
   }
   function start(e) {
     if (overlay.classList.contains('is-off')) return;
