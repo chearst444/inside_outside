@@ -224,6 +224,15 @@
   .shopBuyBtn:disabled{ background:#3a4a33; color:#8fbf7a; cursor:default; }
   #shopCollection{ display:flex; flex-wrap:wrap; gap:8px; min-height:40px; max-height:150px; overflow-y:auto; padding-right:2px; touch-action: pan-y; }
   #shopCollection .shopIcon{ image-rendering:pixelated; }
+  #treatBag{ display:flex; flex-wrap:wrap; gap:8px; min-height:40px; max-height:150px; overflow-y:auto; padding-right:2px; touch-action: pan-y; }
+  .treatBagItem{
+    background:#2c3040; border:1px solid rgba(255,207,74,.4);
+    border-radius:10px; padding:6px; text-align:center; width:76px;
+    cursor:pointer; font: inherit; color:inherit;
+  }
+  .treatBagItem:hover{ border-color:#ffd54a; }
+  .treatBagItem .shopIcon{ image-rendering:pixelated; }
+  .treatBagItem .treatBagCount{ display:block; font-size:10px; color:#ffcf4a; margin-top:2px; }
 
   /* crafting particle burst */
   #craftBurstLayer{
@@ -734,6 +743,10 @@
       <div class="sub">Spend gold coins you've dug up outside ,  1 coin buys any item.</div>
       <div class="chip" id="shopCoinChip">🪙 Coins: <span id="shopCoinCount">0</span></div>
       <div id="shopCatalog"></div>
+
+      <h3 class="shopCollectionHeading">Your Treat Bag</h3>
+      <div class="sub" id="treatBagHint">Tap a treat to carry it out, then tap a spot in the yard or kitchen to set it down for Max.</div>
+      <div id="treatBag"></div>
 
       <h3 class="shopCollectionHeading">Your Collection</h3>
       <div id="shopCollection"></div>
@@ -1385,6 +1398,7 @@
     isFetch:false, // true only while chasing down a ball you actually threw (vs. ambient play)
     throwTime:0,
     interactRadius:120, promptLabel:'Play with Max',
+    eatingTreatUid:null, // which placedTreats entry Max is walking to eat, if any
   };
   let ballThrowPos = null; // where a thrown ball currently sits/is being carried; null = ball's at rest on the toy spot
   let fetchItem = null; // shop item or floor pong ball used for the current fetch
@@ -1402,6 +1416,15 @@
   // slot ,  null means "show the free default" (bowl/house) or "nothing
   // placed there" (food/toy). Set automatically on purchase.
   const equipped = { bowl:null, house:null, food:null, toy:null, collar:null, bed:null };
+  // Meat treats and plain bones aren't auto-placed like the rest of the
+  // shop ,  buying one adds it to this bag, and the player picks a spot
+  // (yard or kitchen floor) to actually set it down for Max. heldTreats
+  // is the bag (item ids, one entry per treat); placedTreats is what's
+  // currently sitting out in the world waiting to be eaten.
+  const heldTreats = [];
+  const placedTreats = []; // {uid, itemId, scene, x, y, w, h, interactRadius}
+  let placingTreatItemId = null; // armed for placement ,  next tap on open floor sets it down
+  let placedTreatSeq = 0;
   const KITCHEN_BOWL_POS = {x:700, y:448};
   const KITCHEN_SOLIDS = [
     {x:122, y:162, w:63, h:60},
@@ -1445,14 +1468,6 @@
     collar_navy:   '#1c2440',
   };
 
-  // All placed food ,  Dog Food and Meat Treats alike ,  goes in the kitchen
-  // bowl now; Max has to be brought inside to eat it. Returns null if
-  // nothing's set.
-  function getFoodTarget(){
-    const it = shopItemById[equipped.food];
-    if(!it) return null;
-    return {pos:KITCHEN_BOWL_POS, scene:'kitchen'};
-  }
   function spriteDescFor(slot, defaultDesc){
     const id = equipped[slot];
     return (id && shopItemById[id]) ? shopItemById[id] : defaultDesc;
@@ -1493,6 +1508,11 @@
     if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
     if(modalOpen){
       if(k==='escape') closeAllModals();
+      return;
+    }
+    if(k==='escape' && placingTreatItemId){
+      placingTreatItemId = null;
+      showToast('Placement canceled.');
       return;
     }
     keys[k]=true;
@@ -1582,10 +1602,7 @@
     // an object (the dog, the pet shop stand, ...) interact with that one
     // directly; otherwise fall back to whatever's nearby the player.
     if(joyMaxDist < TAP_MAX_DIST && !modalOpen){
-      const p = clientToCanvasPoint(endedTouch.clientX, endedTouch.clientY);
-      const target = findClickTarget(p.x, p.y);
-      if(target) interactWith(target);
-      else doInteract();
+      handleWorldTap(endedTouch.clientX, endedTouch.clientY, true);
     }
     e.preventDefault();
   }
@@ -1796,9 +1813,10 @@
     // If there's food or a toy out, the dog occasionally wanders over to it
     // on its own ,  on top of you being able to call it over directly by
     // clicking the food spot, or clicking the dog itself to throw a ball.
-    const foodTarget = getFoodTarget();
-    if(foodTarget && dog.scene===foodTarget.scene && Math.random()<0.16){
-      dog.state='goEat'; dog.tx=foodTarget.pos.x; dog.ty=foodTarget.pos.y; dog.stateUntil=now+9000;
+    const nearTreat = placedTreats.find(t=>t.scene===dog.scene);
+    if(nearTreat && Math.random()<0.3){
+      dog.state='goEat'; dog.tx=nearTreat.x+nearTreat.w/2; dog.ty=nearTreat.y+nearTreat.h/2; dog.stateUntil=now+9000;
+      dog.eatingTreatUid = nearTreat.uid;
       return;
     }
     if(dog.scene==='outside' && equipped.toy && Math.random()<0.18){
@@ -1889,20 +1907,6 @@
     return TOY_SPOT;
   }
 
-  // Calls Max straight over to eat, instead of waiting for him to wander
-  // there on his own. Meat treats need him inside; dog food needs him out
-  // in the yard ,  he can only be called from the room he's actually in.
-  function callDogToEat(){
-    const ft = getFoodTarget();
-    if(!ft) return;
-    if(dog.scene!==ft.scene){
-      showToast(ft.scene==='kitchen' ? "Max needs to be inside for that!" : "Max needs to be outside for that!");
-      return;
-    }
-    if(dog.state==='eating'){ showToast('Max is already eating!'); return; }
-    dog.state='goEat'; dog.tx=ft.pos.x; dog.ty=ft.pos.y; dog.stateUntil=Date.now()+9000;
-  }
-
   // Sends Max to lie down on his bed. Buying a bed places it in the bedroom;
   // tapping the bed (or tapping Max while you're in there) walks him over
   // and plays the lie-down pose. If he's in another room, he comes in first.
@@ -1939,7 +1943,6 @@
       dog.state='idle'; dog.stateUntil=now+800+Math.random()*1500;
     } else if(dog.state==='goEat'){
       dog.state='eating'; dog.stateUntil=now+2200;
-      const it = shopItemById[equipped.food];
       spawnHeartBurst(dog.x, dog.y-dog.size*0.5);
     } else if(dog.state==='goPlay'){
       const it = shopItemById[equipped.toy];
@@ -1968,8 +1971,10 @@
       dog.state='return'; dog.tx=dest.x; dog.ty=dest.y; dog.stateUntil=Date.now()+6000;
       return;
     }
-    if(dog.state==='eating'){
-      equipped.food = null; // placed food only sticks around until it's eaten up
+    if(dog.state==='eating' && dog.eatingTreatUid){
+      const idx = placedTreats.findIndex(t=>t.uid===dog.eatingTreatUid);
+      if(idx!==-1) placedTreats.splice(idx,1);
+      dog.eatingTreatUid = null;
     }
     pickDogState();
   }
@@ -2060,18 +2065,6 @@
     throwBall();
   });
 
-  // The food spot only exists as a clickable/nearby thing while food is
-  // actually equipped ,  its box is sized to whatever item is placed there,
-  // and it only shows up in the room that item is actually placed in.
-  function getFoodSpotObj(){
-    const ft = getFoodTarget();
-    if(!ft || ft.scene!==player.scene) return null;
-    const it = shopItemById[equipped.food];
-    const scale = 2.2;
-    return {type:'foodspot', x:ft.pos.x, y:ft.pos.y, w:it.sw*scale, h:it.sh*scale,
-      interactRadius:70, promptLabel:'Call Max to Eat'};
-  }
-
   // Same idea as the food spot, but for the bed ,  only clickable once
   // you've bought one, and only shows up in the bedroom.
   function getBedSpotObj(){
@@ -2086,6 +2079,68 @@
     if(player.scene!=='kitchen') return null;
     return {type:'bowl', x:KITCHEN_BOWL_POS.x, y:KITCHEN_BOWL_POS.y, w:52, h:40,
       interactRadius:72, promptLabel:"Tap Max's bowl"};
+  }
+
+  // ---------- Treat bag: buy a treat, then place it for Max ----------
+  const TREAT_PLACE_SCALE = 1.8;
+  // Tapping a treat in the Pet Shop's "Your Treat Bag" list arms it for
+  // placement and closes the shop so the very next tap in the yard or
+  // kitchen sets it down (see handleWorldTap / tryPlaceTreatAt below).
+  function armTreatPlacement(itemId){
+    if(!heldTreats.includes(itemId)) return;
+    placingTreatItemId = itemId;
+    const it = shopItemById[itemId];
+    closeAllModals();
+    showToast(`🍖 ${it ? it.name : 'Treat'} ready ,  tap a spot on the ground or by his bowl to set it down.`);
+  }
+  function tryPlaceTreatAt(px, py){
+    const scene = player.scene;
+    if(scene!=='outside' && scene!=='kitchen'){
+      showToast('Set it down out in the yard or in the kitchen.');
+      return;
+    }
+    const room = sceneRect(scene);
+    const margin = 44;
+    if(px<room.x+margin || px>room.x+room.w-margin || py<room.y+margin || py>room.y+room.h-margin){
+      showToast("Pick a spot a little further from the wall.");
+      return;
+    }
+    if(scene==='kitchen' && hitsKitchenSolid(px, py, 18)){
+      showToast("Can't set it down there ,  try open floor.");
+      return;
+    }
+    const itemId = placingTreatItemId;
+    const idx = heldTreats.indexOf(itemId);
+    if(idx===-1){ placingTreatItemId = null; return; }
+    heldTreats.splice(idx,1);
+    const it = shopItemById[itemId];
+    const w = (it && it.sw ? it.sw : 16)*TREAT_PLACE_SCALE;
+    const h = (it && it.sh ? it.sh : 16)*TREAT_PLACE_SCALE;
+    placedTreats.push({
+      type:'placedTreat', uid:'treat'+(placedTreatSeq++), itemId, scene,
+      x: px-w/2, y: py-h/2, w, h, interactRadius:60,
+    });
+    placingTreatItemId = null;
+    showToast(`🍖 ${it ? it.name : 'Treat'} set down. Walk Max over (or tap it) to have him eat!`);
+    updateCoinChip();
+  }
+  function drawPlacedTreat(obj){
+    const it = shopItemById[obj.itemId];
+    if(!it) return;
+    glowIf(obj,'#ffd54a');
+    drawSpriteAt(it, obj.x, obj.y, TREAT_PLACE_SCALE);
+    unglow(obj);
+  }
+  // Sends Max straight to a specific treat sitting out in the world instead
+  // of waiting for him to notice it on his own (see pickDogState above).
+  function callDogToEatTreat(t){
+    if(dog.scene!==t.scene){
+      showToast('Max needs to be in this room first!');
+      return;
+    }
+    if(dog.state==='eating'){ showToast('Max is already eating!'); return; }
+    dog.state='goEat'; dog.tx=t.x+t.w/2; dog.ty=t.y+t.h/2; dog.stateUntil=Date.now()+9000;
+    dog.eatingTreatUid = t.uid;
   }
   function startBowlDrain(){
     bowlLevel = 3;
@@ -2124,12 +2179,6 @@
       const d = Math.hypot(player.x-dog.x, player.y-dog.y);
       if(d < dog.interactRadius && d < bestDist){ found=dog; bestDist=d; }
     }
-    const fs = getFoodSpotObj();
-    if(fs){
-      const fcx=fs.x+fs.w/2, fcy=fs.y+fs.h/2;
-      const fd = Math.hypot(player.x-fcx, player.y-fcy);
-      if(fd < fs.interactRadius && fd < bestDist){ found=fs; bestDist=fd; }
-    }
     const bs = getBedSpotObj();
     if(bs){
       const bcx=bs.x+bs.w/2, bcy=bs.y+bs.h/2;
@@ -2141,6 +2190,12 @@
       const kcx=kb.x+kb.w/2, kcy=kb.y+kb.h/2;
       const kd = Math.hypot(player.x-kcx, player.y-kcy);
       if(kd < kb.interactRadius && kd < bestDist){ found=kb; bestDist=kd; }
+    }
+    for(const t of placedTreats){
+      if(t.scene!==player.scene) continue;
+      const tcx=t.x+t.w/2, tcy=t.y+t.h/2;
+      const td = Math.hypot(player.x-tcx, player.y-tcy);
+      if(td < t.interactRadius && td < bestDist){ found=t; bestDist=td; }
     }
     nearbyObject = found;
 
@@ -2165,10 +2220,10 @@
       else openDogMenu();
     }
     else if(obj.type==='petshop') openPetShop();
-    else if(obj.type==='foodspot') callDogToEat();
     else if(obj.type==='puzzle') openPuzzle();
     else if(obj.type==='dogbedspot') callDogToBed();
     else if(obj.type==='bowl') startBowlDrain();
+    else if(obj.type==='placedTreat') callDogToEatTreat(obj);
   }
 
   // ---------- Click / tap directly on something ----------
@@ -2190,12 +2245,13 @@
       if(objectContainsPoint(obj, px, py)) return obj;
     }
     if(player.scene===dog.scene && objectContainsPoint(dog, px, py)) return dog;
-    const fs = getFoodSpotObj();
-    if(fs && objectContainsPoint(fs, px, py)) return fs;
     const bs = getBedSpotObj();
     if(bs && objectContainsPoint(bs, px, py)) return bs;
     const kb = getKitchenBowlObj();
     if(kb && objectContainsPoint(kb, px, py)) return kb;
+    for(const t of placedTreats){
+      if(t.scene===player.scene && objectContainsPoint(t, px, py)) return t;
+    }
     return null;
   }
   // Converts a page-space (clientX/clientY) point to the canvas's internal
@@ -2209,10 +2265,19 @@
   }
   canvas.addEventListener('click', (e)=>{
     if(modalOpen) return;
-    const p = clientToCanvasPoint(e.clientX, e.clientY);
-    const target = findClickTarget(p.x, p.y);
-    if(target) interactWith(target);
+    handleWorldTap(e.clientX, e.clientY, false);
   });
+  // Shared by the desktop click handler and the touch joystick's tap
+  // fallback above. When a treat is armed for placement (see
+  // armTreatPlacement), a tap sets it down instead of interacting with
+  // whatever's under it; otherwise it's the normal tap-to-interact.
+  function handleWorldTap(clientX, clientY, fallbackToNearby){
+    const p = clientToCanvasPoint(clientX, clientY);
+    const target = findClickTarget(p.x, p.y);
+    if(target){ interactWith(target); return; }
+    if(placingTreatItemId){ tryPlaceTreatAt(p.x, p.y); return; }
+    if(fallbackToNearby) doInteract();
+  }
 
   function shoveRock(obj){
     if(!obj.rockOn) return;
@@ -2601,7 +2666,7 @@
       const grid = document.createElement('div');
       grid.className = 'shopGrid';
       byCategory[cat].forEach(it=>{
-        const consumable = it.sheet==='food';
+        const consumable = it.sheet==='food' || isBagTreatItem(it);
         const owned = !consumable && petInventory.includes(it.id);
         const card = document.createElement('div');
         card.className = 'shopItem shop-card' + (owned ? ' owned' : '');
@@ -2617,6 +2682,29 @@
       });
       wrap.appendChild(grid);
     });
+
+    const bag = document.getElementById('treatBag');
+    bag.innerHTML = '';
+    if(heldTreats.length===0){
+      bag.innerHTML = '<div id="emptyTreatNote" style="color:#83899a;font-size:12px;">Nothing in your bag yet ,  buy a meat treat or bone above!</div>';
+    } else {
+      const counts = {};
+      heldTreats.forEach(id=>{ counts[id] = (counts[id]||0)+1; });
+      Object.keys(counts).forEach(id=>{
+        const it = shopItemById[id];
+        if(!it) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'treatBagItem';
+        btn.innerHTML = `
+          <div class="shopIcon" style="${shopItemIconStyle(it, it.src ? 0.55 : 1.5)}margin:0 auto;"></div>
+          <span>${it.name}</span>
+          ${counts[id]>1 ? `<span class="treatBagCount">×${counts[id]}</span>` : ''}
+        `;
+        btn.addEventListener('click', ()=>armTreatPlacement(id));
+        bag.appendChild(btn);
+      });
+    }
 
     const coll = document.getElementById('shopCollection');
     coll.innerHTML = '';
@@ -2635,8 +2723,14 @@
 
   }
 
+  // Meat treats (Chicken Drumstick, Steak) and the Plain Bone go in the
+  // player's treat bag to be placed by hand, instead of auto-equipping
+  // like the rest of the shop. The colored chew bones are still toys.
+  function isBagTreatItem(item){
+    return item.sheet==='meat' || item.id==='bone_plain';
+  }
   function buyShopItem(item){
-    const consumable = item.sheet==='food';
+    const consumable = item.sheet==='food' || isBagTreatItem(item);
     if(!consumable && petInventory.includes(item.id)) return;
     const coinIdx = inventory.indexOf('coin');
     if(coinIdx===-1){
@@ -2658,9 +2752,9 @@
       bowlLevel = 3;
       bowlDrainStep = -1;
       placed = " The bag is in the kitchen. Max's bowl fills up.";
-    } else if(item.sheet==='meat' || item.category==='Treats' || item.category==='Meat Treats'){
-      equipped.food = item.id;
-      placed = " It's in the kitchen.";
+    } else if(isBagTreatItem(item)){
+      heldTreats.push(item.id);
+      placed = " It's in your Treat Bag below ,  tap it, then tap a spot to set it down for Max.";
     } else if(item.category==='Balls' || item.category==='Chew Bones' || item.category==='Rope Toys'){
       equipped.toy = item.id;
       placed = " It's on the yard toy spot.";
@@ -2992,17 +3086,18 @@
       else if(obj.type==='chest' && player.scene==='bedroom') drawBedroomChest(obj);
     }
 
-    // Bowl / doghouse / food / toy / bed / collar are drawn from `equipped`,
-    // which buyShopItem sets automatically (no Yard Setup dropdowns).
-    const foodTarget = getFoodTarget();
+    // Treats the player has set down for Max, waiting to be eaten.
+    placedTreats.forEach(t=>{ if(t.scene===player.scene) drawPlacedTreat(t); });
+
+    // Bowl / doghouse / toy / bed / collar are drawn from `equipped`, which
+    // buyShopItem sets automatically (no Yard Setup dropdowns). Treats are
+    // handled separately, above, via placedTreats.
     if(player.scene==='kitchen'){
       updateBowlDrain();
       const lvl = Math.min(3, Math.max(0, bowlLevel|0));
       drawPet('bowl_kibble_'+lvl, KITCHEN_BOWL_POS.x, KITCHEN_BOWL_POS.y, 1.8);
       if(Date.now() < foodBagUntil && foodBagId && shopItemById[foodBagId]){
         drawSpriteAt(shopItemById[foodBagId], KITCHEN_BOWL_POS.x+6, KITCHEN_BOWL_POS.y-34, 1.5);
-      } else if(foodTarget && foodTarget.scene==='kitchen' && shopItemById[equipped.food] && shopItemById[equipped.food].sheet==='meat'){
-        drawSpriteAt(shopItemById[equipped.food], KITCHEN_BOWL_POS.x+10, KITCHEN_BOWL_POS.y-6, 2.2);
       }
     }
     if(player.scene==='outside'){
