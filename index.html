@@ -857,6 +857,13 @@
     s.img = new Image();
     s.img.src = s.src;
   }
+  const HOUSE_KEYS = ['brown','purple','pink','blue'];
+  const houseImgs = {};
+  for(const k of HOUSE_KEYS){
+    const im = new Image();
+    im.src = 'assets/shop/house_' + k + '.png';
+    houseImgs[k] = im;
+  }
 
   // The full purchasable catalog ,  one gold coin buys any single item here.
   // The starter food bowl / doghouse / bone (placed for free below) are the
@@ -880,10 +887,10 @@
     {id:'bed_amber',    name:'Amber-Trim Bed',    category:'Beds', sheet:'beds', sx:64,sy:64, sw:64,sh:32},
     {id:'bed_charcoal', name:'Charcoal-Trim Bed', category:'Beds', sheet:'beds', sx:0, sy:96, sw:64,sh:32},
     {id:'bed_olive',    name:'Olive-Trim Bed',    category:'Beds', sheet:'beds', sx:64,sy:96, sw:64,sh:32},
-    // Doghouses
-    {id:'house_purple', name:'Purple Doghouse',   category:'Doghouses', sheet:'houses', sx:96,sy:0, sw:96,sh:96},
-    {id:'house_pink',   name:'Pink Doghouse',     category:'Doghouses', sheet:'houses', sx:0, sy:96,sw:96,sh:96},
-    {id:'house_slate',  name:'Slate Doghouse',    category:'Doghouses', sheet:'houses', sx:96,sy:96,sw:96,sh:96},
+    // Doghouses — each color is its own shop listing (1 coin). Brown is free in the yard.
+    {id:'house_purple', name:'Purple Doghouse', category:'Doghouses', src:'assets/shop/house_purple.png', houseKey:'purple', sw:100, sh:72},
+    {id:'house_pink',   name:'Pink Doghouse',   category:'Doghouses', src:'assets/shop/house_pink.png',   houseKey:'pink',   sw:100, sh:72},
+    {id:'house_blue',   name:'Blue Doghouse',   category:'Doghouses', src:'assets/shop/house_blue.png',   houseKey:'blue',   sw:100, sh:72},
     // Balls
     {id:'ball_blue',    name:'Blue Ball',   category:'Balls', sheet:'balls', sx:0,sy:0,  sw:24,sh:16},
     {id:'ball_gold',    name:'Gold Ball',   category:'Balls', sheet:'balls', sx:0,sy:16, sw:24,sh:16},
@@ -1283,7 +1290,7 @@
   }
 
   // ---------- Player / state ----------
-  const player = { type:'player', scene:'outside', x:120, y:300, radius:30, speed:3.4, facing:'right', dir:'down', animFrame:0, animAcc:0, digUntil:0, pendingFind:null, walkTarget:null, pendingDig:null };
+  const player = { type:'player', scene:'outside', x:120, y:300, radius:30, speed:3.4, facing:'right', dir:'down', digDir:'down', animFrame:0, animAcc:0, digUntil:0, pendingFind:null, walkTarget:null, pendingDig:null };
 
   // The dog lives in the yard (the 'outside' scene), wandering on its own
   // between idle/sniff/sit/lie/sleep poses and walking to a new spot.
@@ -1317,7 +1324,7 @@
   const DOG_BED_POS = {x:620, y:215}; // bedroom, placed as soon as you buy your first bed
   const DOG_BED_SCALE = 1.8;
   const DEFAULT_BOWL  = {sheet:'bowls',  sx:0,sy:0, sw:16,sh:16, name:'Green Food Bowl'};
-  const DEFAULT_HOUSE = {sheet:'houses', sx:0,sy:0, sw:96,sh:96, name:'Brown Doghouse'};
+  const DEFAULT_HOUSE = {name:'Brown Doghouse', houseKey:'brown', src:'assets/shop/house_brown.png', sw:100, sh:72};
   const DEFAULT_BONE  = {sheet:'bones',  sx:0,sy:0, sw:32,sh:32, name:'Bone'};
   const GAME_START_TIME = Date.now();
   const BONE_LIFETIME_MS = 5*60*1000; // the starter bone by the doghouse disappears after 5 minutes of play
@@ -1343,10 +1350,31 @@
     return (id && shopItemById[id]) ? shopItemById[id] : defaultDesc;
   }
   function drawSpriteAt(desc, x, y, scale){
+    if(desc && desc.src){
+      const im = desc.houseKey ? houseImgs[desc.houseKey] : null;
+      const img = im || (desc._img || (desc._img = Object.assign(new Image(), {src:desc.src})));
+      if(img.complete && img.naturalWidth){
+        ctx.drawImage(img, x, y, img.naturalWidth*scale, img.naturalHeight*scale);
+      }
+      return;
+    }
     const sheet = SHOP_SHEETS[desc.sheet];
-    if(sheet.img.complete && sheet.img.naturalWidth){
+    if(sheet && sheet.img.complete && sheet.img.naturalWidth){
       ctx.drawImage(sheet.img, desc.sx,desc.sy,desc.sw,desc.sh, x,y, desc.sw*scale, desc.sh*scale);
     }
+  }
+  function yardHouseDesc(){
+    const it = equipped.house && shopItemById[equipped.house];
+    return (it && it.houseKey) ? it : DEFAULT_HOUSE;
+  }
+  function drawYardHouse(){
+    const desc = yardHouseDesc();
+    const im = houseImgs[desc.houseKey || 'brown'];
+    if(!im || !im.complete || !im.naturalWidth) return;
+    const targetH = 118;
+    const sc = targetH / im.naturalHeight;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(im, HOUSE_POS.x, HOUSE_POS.y, im.naturalWidth*sc, im.naturalHeight*sc);
   }
   const particles = []; // array of {x0,y0,vx,vy,g,color,size,spawnTime,life}
   const DIRT_COLORS = ['#7a5330','#8f6238','#5a3f24','#a97a4a','#6b4423'];
@@ -1542,10 +1570,7 @@
         player.walkTarget = null;
         player.pendingDig = null;
         if(spot){
-          const cx = spot.x + spot.w/2, cy = spot.y + spot.h/2;
-          faceToward(cx, cy);
-          if(spot.rockOn) shoveRock(spot);
-          handleDig(spot);
+          beginDig(spot);
         }
         dx = 0; dy = 0;
       } else {
@@ -1984,23 +2009,48 @@
     const dx = x - player.x, dy = y - player.y;
     if(Math.abs(dx) > Math.abs(dy)){
       player.dir = dx>0 ? 'right' : 'left';
-      player.facing = player.dir;
-    } else if(Math.abs(dy) > 0.15){
-      player.dir = dy>0 ? 'down' : 'up';
+    } else {
+      player.dir = dy>=0 ? 'down' : 'up';
     }
+    player.facing = player.dir;
+  }
+  // Stand off so facing the mound is usually down/left/right (face + shovel),
+  // not up (back-to-camera). Default is north of the mound → dig_down.
+  function digStandPoint(spot){
+    const cx = spot.x + spot.w/2, cy = spot.y + spot.h/2;
+    const dx = cx - player.x, dy = cy - player.y;
+    const OFF = 30;
+    let sx = cx, sy = cy - OFF;
+    if(Math.abs(dx) > Math.abs(dy) + 8){
+      sx = dx>0 ? cx - OFF : cx + OFF;
+      sy = cy;
+    } else if(dy < -20 && Math.abs(dy) > Math.abs(dx) + 12){
+      sx = player.x < cx ? cx - OFF : cx + OFF;
+      sy = cy;
+    }
+    const room = sceneRect(player.scene);
+    const r = player.radius;
+    sx = Math.min(Math.max(sx, room.x+WALL+r), room.x+room.w-WALL-r);
+    sy = Math.min(Math.max(sy, room.y+WALL+r), room.y+room.h-WALL-r);
+    return {x:sx, y:sy};
+  }
+  function beginDig(spot){
+    const cx = spot.x + spot.w/2, cy = spot.y + spot.h/2;
+    faceToward(cx, cy);
+    player.digDir = player.dir;
+    if(spot.rockOn) shoveRock(spot);
+    handleDig(spot);
   }
   function approachThenDig(spot){
     if(Date.now() < player.digUntil) return;
-    const cx = spot.x + spot.w/2, cy = spot.y + spot.h/2;
-    const dist = Math.hypot(player.x - cx, player.y - cy);
-    if(dist > 40){
-      player.walkTarget = {x: cx, y: cy + 26};
+    const stand = digStandPoint(spot);
+    const dist = Math.hypot(player.x - stand.x, player.y - stand.y);
+    if(dist > 10){
+      player.walkTarget = stand;
       player.pendingDig = spot;
       return;
     }
-    faceToward(cx, cy);
-    if(spot.rockOn) shoveRock(spot);
-    handleDig(spot);
+    beginDig(spot);
   }
 
   function finishDig(spot, find){
@@ -2046,6 +2096,8 @@
       else find = DIG_FINDS.find(f=>f.kind==="coin");
     }
     player.digUntil = Date.now()+720;
+    player.digDir = player.dir || 'down';
+    player.facing = player.digDir;
     player.pendingFind = {spot, find};
   }
 
@@ -2294,6 +2346,14 @@
       + `background-position:-${sx*scale}px -${sy*scale}px;`
       + `background-size:${sheet.w*scale}px ${sheet.h*scale}px;`;
   }
+  function shopItemIconStyle(it, scale){
+    if(it.src){
+      const w = Math.round((it.sw||96)*scale);
+      const h = Math.round((it.sh||72)*scale);
+      return `width:${w}px;height:${h}px;background-image:url(${it.src});background-size:contain;background-repeat:no-repeat;background-position:center;`;
+    }
+    return shopIconStyle(SHOP_SHEETS[it.sheet], it.sx, it.sy, it.sw, it.sh, scale);
+  }
 
   function openPetShop(){
     modalOpen = true;
@@ -2321,11 +2381,10 @@
       grid.className = 'shopGrid';
       byCategory[cat].forEach(it=>{
         const owned = petInventory.includes(it.id);
-        const sheet = SHOP_SHEETS[it.sheet];
         const card = document.createElement('div');
         card.className = 'shopItem' + (owned ? ' owned' : '');
         card.innerHTML = `
-          <div class="shopIcon" style="${shopIconStyle(sheet, it.sx, it.sy, it.sw, it.sh, 2)}"></div>
+          <div class="shopIcon" style="${shopItemIconStyle(it, it.src ? 0.7 : 2)}"></div>
           <span>${it.name}</span>
           <button class="shopBuyBtn" ${owned ? 'disabled' : ''}>${owned ? 'Owned ✓' : '🪙 1'}</button>
         `;
@@ -2344,10 +2403,9 @@
     } else {
       petInventory.forEach(id=>{
         const it = shopItemById[id];
-        const sheet = SHOP_SHEETS[it.sheet];
         const chip = document.createElement('div');
         chip.className = 'creationChip';
-        chip.innerHTML = `<div class="shopIcon" style="${shopIconStyle(sheet, it.sx, it.sy, it.sw, it.sh, 1.5)}margin:0 auto;"></div><span>${it.name}</span>`;
+        chip.innerHTML = `<div class="shopIcon" style="${shopItemIconStyle(it, it.src ? 0.55 : 1.5)}margin:0 auto;"></div><span>${it.name}</span>`;
         coll.appendChild(chip);
       });
     }
@@ -2404,6 +2462,9 @@
     if(item.category==='Beds' && !equipped.bed){
       equipped.bed = item.id;
       showToast(`Bought the ${item.name}! 🐾 It's set up in the bedroom.`);
+    } else if(item.category==='Doghouses'){
+      equipped.house = item.id;
+      showToast(`Bought the ${item.name}! 🐾 It's in the yard now.`);
     } else {
       showToast(`Bought the ${item.name}! 🐾`);
     }
@@ -2728,7 +2789,7 @@
     }
     if(player.scene==='outside'){
       drawYardPretty();
-      drawPet('yard_house', HOUSE_POS.x, HOUSE_POS.y, 6.2);
+      drawYardHouse();
       if(equipped.toy && shopItemById[equipped.toy]){
         const pos = getToyRenderPos();
         drawSpriteAt(shopItemById[equipped.toy], pos.x, pos.y, 2.2);
@@ -2974,9 +3035,10 @@
 
   function drawPlayer(){
     const now = Date.now();
-    const d = player.dir || 'down';
+    const digging = now < player.digUntil;
+    const d = digging ? (player.digDir || player.dir || 'down') : (player.dir || 'down');
     let key;
-    if(now < player.digUntil){
+    if(digging){
       const elapsed = 720 - (player.digUntil - now);
       const fi = Math.min(4, Math.floor(elapsed / 144));
       key = 'dig_'+d+'_'+fi;
