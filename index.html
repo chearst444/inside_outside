@@ -205,11 +205,16 @@
   #shopCatalog h3:first-child{ margin-top:0; }
   .shopCollectionHeading{ font-size:13px; color:#9aa0ac; margin:16px 0 8px; text-transform:uppercase; letter-spacing:.5px; }
   .shopGrid{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:4px; }
-  .shopItem{
+  .shopItem, .shop-card{
     background:#2c3040; border:1px solid rgba(255,255,255,.15);
-    border-radius:10px; padding:8px; text-align:center; width:84px;
+    border-radius:10px; padding:6px; text-align:center; width:76px;
   }
-  .shopItem .shopIcon{ margin:0 auto 4px; image-rendering:pixelated; }
+  .shopItem .shopIcon, .shopItem img, .shop-card img, .shop-card .shopIcon{
+    margin:0 auto 4px; image-rendering:pixelated;
+    display:block;
+    max-width:72px; max-height:56px;
+    object-fit:contain;
+  }
   .shopItem span{ display:block; font-size:10px; color:#c9cdd6; margin-bottom:6px; min-height:22px; }
   .shopItem.owned{ border-color:#6fae3e; background:#23331e; }
   .shopBuyBtn{
@@ -915,15 +920,12 @@
   // The full purchasable catalog ,  one gold coin buys any single item here.
   // The brown yard house is free. Bowls are not sold; one kitchen bowl is already in the house.
   const SHOP_ITEMS = [
-    // Beds
-    {id:'bed_skyblue',  name:'Sky-Trim Bed',      category:'Beds', sheet:'beds', sx:0, sy:0,  sw:64,sh:32},
-    {id:'bed_forest',   name:'Forest-Trim Bed',   category:'Beds', sheet:'beds', sx:64,sy:0,  sw:64,sh:32},
-    {id:'bed_plum',     name:'Plum-Trim Bed',     category:'Beds', sheet:'beds', sx:0, sy:32, sw:64,sh:32},
-    {id:'bed_teal',     name:'Teal-Trim Bed',     category:'Beds', sheet:'beds', sx:64,sy:32, sw:64,sh:32},
-    {id:'bed_maroon',   name:'Maroon-Trim Bed',   category:'Beds', sheet:'beds', sx:0, sy:64, sw:64,sh:32},
-    {id:'bed_amber',    name:'Amber-Trim Bed',    category:'Beds', sheet:'beds', sx:64,sy:64, sw:64,sh:32},
-    {id:'bed_charcoal', name:'Charcoal-Trim Bed', category:'Beds', sheet:'beds', sx:0, sy:96, sw:64,sh:32},
-    {id:'bed_olive',    name:'Olive-Trim Bed',    category:'Beds', sheet:'beds', sx:64,sy:96, sw:64,sh:32},
+    // Treats first (meat treats + dog food treats). Each stays its own listing.
+    {id:'meat_drumstick', name:'Chicken Drumstick', category:'Treats', sheet:'meat', sx:0,sy:0, sw:16,sh:16},
+    {id:'meat_steak',     name:'Steak',              category:'Treats', sheet:'meat', sx:0,sy:16,sw:16,sh:16},
+    {id:'food_small',   name:'Small Dog Food',  category:'Treats', sheet:'food', sx:0, sy:0,sw:32,sh:64},
+    {id:'food_medium',  name:'Medium Dog Food', category:'Treats', sheet:'food', sx:32,sy:0,sw:32,sh:64},
+    {id:'food_large',   name:'Large Dog Food',  category:'Treats', sheet:'food', sx:64,sy:0,sw:32,sh:64},
     // Doghouses: each color is its own shop listing (1 coin). Brown is free in the yard.
     {id:'house_purple', name:'Purple Doghouse', category:'Doghouses', src:'assets/shop/house_purple.png', houseKey:'purple', sw:100, sh:72},
     {id:'house_pink',   name:'Pink Doghouse',   category:'Doghouses', src:'assets/shop/house_pink.png',   houseKey:'pink',   sw:100, sh:72},
@@ -933,10 +935,6 @@
     {id:'ball_gold',    name:'Gold Ball',   category:'Balls', sheet:'balls', sx:0,sy:16, sw:24,sh:16},
     {id:'ball_pink',    name:'Pink Ball',   category:'Balls', sheet:'balls', sx:0,sy:32, sw:24,sh:16},
     {id:'ball_green',   name:'Green Ball',  category:'Balls', sheet:'balls', sx:0,sy:48, sw:24,sh:16},
-    // Dog Food
-    {id:'food_small',   name:'Small Dog Food',  category:'Dog Food', sheet:'food', sx:0, sy:0,sw:32,sh:64},
-    {id:'food_medium',  name:'Medium Dog Food', category:'Dog Food', sheet:'food', sx:32,sy:0,sw:32,sh:64},
-    {id:'food_large',   name:'Large Dog Food',  category:'Dog Food', sheet:'food', sx:64,sy:0,sw:32,sh:64},
     // Chew Bones
     {id:'chew_purple',  name:'Purple Chew Bone', category:'Chew Bones', sheet:'chews', sx:0, sy:0, sw:16,sh:16},
     {id:'chew_teal',    name:'Teal Chew Bone',   category:'Chew Bones', sheet:'chews', sx:16,sy:0, sw:16,sh:16},
@@ -954,9 +952,15 @@
     {id:'collar_navy',   name:'Navy Collar',   category:'Collars', sheet:'collars', sx:16,sy:16,sw:16,sh:16},
     // Rope Toy
     {id:'rope_toy',     name:'Rope Toy', category:'Rope Toys', sheet:'rope', sx:0,sy:0, sw:32,sh:32},
-    // Meat Treats
-    {id:'meat_drumstick', name:'Chicken Drumstick', category:'Meat Treats', sheet:'meat', sx:0,sy:0, sw:16,sh:16},
-    {id:'meat_steak',     name:'Steak',              category:'Meat Treats', sheet:'meat', sx:0,sy:16,sw:16,sh:16},
+    // Beds (after treats, houses, toys ,  not at the top)
+    {id:'bed_skyblue',  name:'Sky-Trim Bed',      category:'Beds', sheet:'beds', sx:0, sy:0,  sw:64,sh:32},
+    {id:'bed_forest',   name:'Forest-Trim Bed',   category:'Beds', sheet:'beds', sx:64,sy:0,  sw:64,sh:32},
+    {id:'bed_plum',     name:'Plum-Trim Bed',     category:'Beds', sheet:'beds', sx:0, sy:32, sw:64,sh:32},
+    {id:'bed_teal',     name:'Teal-Trim Bed',     category:'Beds', sheet:'beds', sx:64,sy:32, sw:64,sh:32},
+    {id:'bed_maroon',   name:'Maroon-Trim Bed',   category:'Beds', sheet:'beds', sx:0, sy:64, sw:64,sh:32},
+    {id:'bed_amber',    name:'Amber-Trim Bed',    category:'Beds', sheet:'beds', sx:64,sy:64, sw:64,sh:32},
+    {id:'bed_charcoal', name:'Charcoal-Trim Bed', category:'Beds', sheet:'beds', sx:0, sy:96, sw:64,sh:32},
+    {id:'bed_olive',    name:'Olive-Trim Bed',    category:'Beds', sheet:'beds', sx:64,sy:96, sw:64,sh:32},
     // Shampoo
     {id:'shampoo_teal',   name:'Teal Shampoo',   category:'Shampoo', sheet:'shampoo', sx:0, sy:0, sw:16,sh:16},
     {id:'shampoo_olive',  name:'Olive Shampoo',  category:'Shampoo', sheet:'shampoo', sx:16,sy:0, sw:16,sh:16},
@@ -1361,6 +1365,9 @@
     interactRadius:120, promptLabel:'Play with Max',
   };
   let ballThrowPos = null; // where a thrown ball currently sits/is being carried; null = ball's at rest on the toy spot
+  let fetchItem = null; // shop item or floor pong ball used for the current fetch
+  let fetchReadyAt = 0; // don't spam another throw until Max has returned
+  const PONG_FETCH_TOY = {id:'pong_floor', name:'Ball', category:'Balls', isPong:true, sw:16, sh:16};
   const keys = {};
   const touchVec = { dx:0, dy:0 }; // set by the on-screen joystick, merged into keyboard movement below
   let nearbyObject = null;
@@ -1775,20 +1782,52 @@
     else { dog.state='idle'; dog.stateUntil=now+1800+Math.random()*1800; }
   }
 
-  // You have to actually own a ball for this ,  thrown from wherever Max
-  // currently is, landing somewhere out in the yard for him to chase.
+  function isFetchToyItem(it){
+    if(!it) return false;
+    if(it.isPong) return true;
+    return it.category==='Balls' || it.category==='Chew Bones' || it.category==='Rope Toys';
+  }
+  function hasFloorPongBall(){
+    return SCENES.bedroom.objects.some(o => o.type==='raceball');
+  }
+  function getFetchToy(){
+    const eq = equipped.toy && shopItemById[equipped.toy];
+    if(isFetchToyItem(eq)) return eq;
+    const owned = petInventory.map(id => shopItemById[id]).find(isFetchToyItem);
+    if(owned) return owned;
+    if(hasFloorPongBall()) return PONG_FETCH_TOY;
+    return null;
+  }
+  function canPlayFetch(){
+    return !!getFetchToy();
+  }
+  function fetchBusy(){
+    return !!(dog.isFetch || dog.state==='goPlay' && ballThrowPos || dog.state==='fetching' || dog.state==='return');
+  }
+  function boyReturnSpot(){
+    const side = player.x <= dog.x ? -1 : 1;
+    return {x: player.x + side*36, y: player.y + 10};
+  }
+
+  // Throw a short toss in the yard. Max runs to it and brings it back to the boy.
   function throwBall(){
-    const it = shopItemById[equipped.toy];
+    const now = Date.now();
+    if(player.scene!=='outside' || dog.scene!=='outside') return;
+    if(fetchBusy() || now < fetchReadyAt) return;
+    const it = getFetchToy();
     if(!it) return;
-    const angle = Math.random()*Math.PI*2;
-    const dist = 120+Math.random()*170;
-    const rm = sceneRect(dog.scene);
-    const tx = Math.min(Math.max(dog.x+Math.cos(angle)*dist, rm.x+60), rm.x+rm.w-60);
-    const ty = Math.min(Math.max(dog.y+Math.sin(angle)*dist, rm.y+80), rm.y+rm.h-60);
+    fetchItem = it;
+    if(it.id && shopItemById[it.id]) equipped.toy = it.id;
+    const dirs = {right:[1,0], left:[-1,0], down:[0,1], up:[0,-1]};
+    const dxy = dirs[player.dir] || [1,0];
+    const dist = 72 + Math.random()*36;
+    const rm = sceneRect('outside');
+    const tx = Math.min(Math.max(player.x + dxy[0]*dist + (Math.random()-.5)*24, rm.x+60), rm.x+rm.w-60);
+    const ty = Math.min(Math.max(player.y + dxy[1]*dist + (Math.random()-.5)*24, rm.y+80), rm.y+rm.h-60);
     ballThrowPos = {x:tx, y:ty};
     dog.isFetch = true;
-    dog.throwTime = Date.now();
-    dog.state = 'goPlay'; dog.tx = tx; dog.ty = ty; dog.stateUntil = Date.now()+9000;
+    dog.throwTime = now;
+    dog.state = 'goPlay'; dog.tx = tx; dog.ty = ty; dog.stateUntil = now+9000;
     showToast(`You throw the ${it.name}!`);
   }
 
@@ -1861,8 +1900,8 @@
       spawnHeartBurst(dog.x, dog.y-dog.size*0.5);
     } else if(dog.state==='goPlay'){
       const it = shopItemById[equipped.toy];
-      if(dog.isFetch && it && it.category==='Balls'){
-        dog.state='fetching'; dog.stateUntil=now+900;
+      if(dog.isFetch && (isFetchToyItem(it) || isFetchToyItem(fetchItem))){
+        dog.state='fetching'; dog.stateUntil=now+700;
       } else {
         dog.state='playing'; dog.stateUntil=now+2600;
         spawnHeartBurst(dog.x, dog.y-dog.size*0.5);
@@ -1870,7 +1909,10 @@
     } else if(dog.state==='return'){
       ballThrowPos = null;
       dog.isFetch = false;
-      dog.state='idle'; dog.stateUntil=now+600;
+      fetchItem = null;
+      fetchReadyAt = now + 1800;
+      dog.state='idle'; dog.stateUntil=now+700;
+      showToast('Max wags his tail.');
     } else if(dog.state==='goBed'){
       dog.state='inBed'; dog.stateUntil=now+15000+Math.random()*10000;
     }
@@ -1879,7 +1921,8 @@
   // Called when a stationary state (eating/playing/fetching/...) times out.
   function dogFinishedAction(){
     if(dog.state==='fetching'){
-      dog.state='return'; dog.tx=TOY_SPOT.x; dog.ty=TOY_SPOT.y; dog.stateUntil=Date.now()+6000;
+      const dest = boyReturnSpot();
+      dog.state='return'; dog.tx=dest.x; dog.ty=dest.y; dog.stateUntil=Date.now()+6000;
       return;
     }
     if(dog.state==='eating'){
@@ -1897,11 +1940,15 @@
 
     const traveling = TRAVEL_STATES.has(dog.state);
     if(traveling){
+      if(dog.state==='return' && dog.isFetch && player.scene===dog.scene){
+        const dest = boyReturnSpot();
+        dog.tx = dest.x; dog.ty = dest.y;
+      }
       const dx=dog.tx-dog.x, dy=dog.ty-dog.y, d=Math.hypot(dx,dy);
       if(d<5 || now>=dog.stateUntil){
         dogArrived();
       } else {
-        const spd = dog.state==='return' ? 1.6 : 1.3;
+        const spd = dog.state==='return' ? 1.85 : 1.3;
         let nx = dog.x + dx/d*spd, ny = dog.y + dy/d*spd;
         if(dog.scene==='kitchen'){
           const t = SCENES.kitchen.objects.find(o=>o.type==='table');
@@ -1937,22 +1984,23 @@
   }
 
   // ---------- Max's popup menu (Pet / Fetch) ----------
-  // Touching Max always opens this instead of acting immediately ,  Fetch is
-  // enabled as soon as you own ANY ball from the Pet Shop (it doesn't need
-  // to already be the yard's placed toy; picking Fetch places it there).
+  // Fetch stays hidden until the player has a ball or toy. The bedroom floor
+  // pong ball counts; a purchased ball/chew/rope also counts.
   function openDogMenu(){
     sayMaxLine();
     modalOpen = true;
     const menu = document.getElementById('dogMenu');
     menu.style.left = (dog.x/CANVAS_W*100) + '%';
     menu.style.top = (dog.y/CANVAS_H*100) + '%';
-    const ownsBall = petInventory.some(id => shopItemById[id] && shopItemById[id].category==='Balls');
-    const busyFetching = dog.state==='goPlay' || dog.state==='fetching' || dog.state==='return';
+    const hasToy = canPlayFetch();
+    const busyFetching = fetchBusy();
     const fetchBtn = document.getElementById('dogMenuFetch');
-    fetchBtn.disabled = !ownsBall || dog.scene!=='outside' || busyFetching;
-    fetchBtn.title = !ownsBall ? 'Buy a ball from the Pet Shop first'
-      : dog.scene!=='outside' ? 'Max needs to be outside to fetch'
-      : busyFetching ? "Max is already after the ball" : '';
+    fetchBtn.style.display = hasToy ? '' : 'none';
+    const outside = dog.scene==='outside' && player.scene==='outside';
+    fetchBtn.disabled = !hasToy || !outside || busyFetching || Date.now() < fetchReadyAt;
+    fetchBtn.title = !hasToy ? ''
+      : !outside ? 'Max needs to be outside to fetch'
+      : busyFetching || Date.now() < fetchReadyAt ? "Max is already after the ball" : '';
     menu.classList.remove('hidden');
   }
   function closeDogMenu(){
@@ -1965,11 +2013,7 @@
   });
   document.getElementById('dogMenuFetch').addEventListener('click', ()=>{
     closeDogMenu();
-    const ballId = (equipped.toy && shopItemById[equipped.toy] && shopItemById[equipped.toy].category==='Balls')
-      ? equipped.toy
-      : petInventory.find(id => shopItemById[id] && shopItemById[id].category==='Balls');
-    if(!ballId) return;
-    equipped.toy = ballId; // whichever ball you fetch with becomes the yard's placed toy
+    if(!canPlayFetch() || fetchBusy() || Date.now() < fetchReadyAt) return;
     throwBall();
   });
 
@@ -2479,9 +2523,14 @@
     if(it.src){
       const w = Math.round((it.sw||96)*scale);
       const h = Math.round((it.sh||72)*scale);
-      return `width:${w}px;height:${h}px;background-image:url(${it.src});background-size:contain;background-repeat:no-repeat;background-position:center;`;
+      return `width:${w}px;height:${h}px;max-width:72px;max-height:56px;background-image:url(${it.src});background-size:contain;background-repeat:no-repeat;background-position:center;object-fit:contain;`;
     }
     return shopIconStyle(SHOP_SHEETS[it.sheet], it.sx, it.sy, it.sw, it.sh, scale);
+  }
+  function catalogThumbScale(it){
+    const maxW = 72, maxH = 56;
+    const sw = it.sw || 32, sh = it.sh || 32;
+    return Math.min(maxW/sw, maxH/sh, 2);
   }
 
   function openPetShop(){
@@ -2509,12 +2558,12 @@
       const grid = document.createElement('div');
       grid.className = 'shopGrid';
       byCategory[cat].forEach(it=>{
-        const consumable = it.category==='Dog Food';
+        const consumable = it.sheet==='food';
         const owned = !consumable && petInventory.includes(it.id);
         const card = document.createElement('div');
-        card.className = 'shopItem' + (owned ? ' owned' : '');
+        card.className = 'shopItem shop-card' + (owned ? ' owned' : '');
         card.innerHTML = `
-          <div class="shopIcon" style="${shopItemIconStyle(it, it.src ? 0.7 : 2)}"></div>
+          <div class="shopIcon" style="${shopItemIconStyle(it, catalogThumbScale(it))}"></div>
           <span>${it.name}</span>
           <button class="shopBuyBtn" ${owned ? 'disabled' : ''}>${owned ? 'Owned ✓' : '🪙 1'}</button>
         `;
@@ -2544,7 +2593,7 @@
   }
 
   function buyShopItem(item){
-    const consumable = item.category==='Dog Food';
+    const consumable = item.sheet==='food';
     if(!consumable && petInventory.includes(item.id)) return;
     const coinIdx = inventory.indexOf('coin');
     if(coinIdx===-1){
@@ -2560,13 +2609,13 @@
     } else if(item.category==='Doghouses'){
       equipped.house = item.id;
       placed = " It replaces the yard house.";
-    } else if(item.category==='Dog Food'){
+    } else if(item.sheet==='food'){
       foodBagId = item.id;
       foodBagUntil = Date.now()+2000;
       bowlLevel = 3;
       bowlDrainStep = -1;
       placed = " The bag is in the kitchen. Max's bowl fills up.";
-    } else if(item.category==='Meat Treats'){
+    } else if(item.sheet==='meat' || item.category==='Treats' || item.category==='Meat Treats'){
       equipped.food = item.id;
       placed = " It's in the kitchen.";
     } else if(item.category==='Balls' || item.category==='Chew Bones' || item.category==='Rope Toys'){
@@ -2899,14 +2948,17 @@
       drawPet('bowl_kibble_'+lvl, KITCHEN_BOWL_POS.x, KITCHEN_BOWL_POS.y, 1.8);
       if(Date.now() < foodBagUntil && foodBagId && shopItemById[foodBagId]){
         drawSpriteAt(shopItemById[foodBagId], KITCHEN_BOWL_POS.x+6, KITCHEN_BOWL_POS.y-34, 1.5);
-      } else if(foodTarget && foodTarget.scene==='kitchen' && shopItemById[equipped.food] && shopItemById[equipped.food].category==='Meat Treats'){
+      } else if(foodTarget && foodTarget.scene==='kitchen' && shopItemById[equipped.food] && shopItemById[equipped.food].sheet==='meat'){
         drawSpriteAt(shopItemById[equipped.food], KITCHEN_BOWL_POS.x+10, KITCHEN_BOWL_POS.y-6, 2.2);
       }
     }
     if(player.scene==='outside'){
       drawYardPretty();
       drawYardHouse();
-      if(equipped.toy && shopItemById[equipped.toy]){
+      if(dog.isFetch && fetchItem && fetchItem.isPong){
+        const pos = getToyRenderPos();
+        drawFetchPongAt(pos.x, pos.y);
+      } else if(equipped.toy && shopItemById[equipped.toy]){
         const pos = getToyRenderPos();
         drawSpriteAt(shopItemById[equipped.toy], pos.x, pos.y, 2.2);
       }
@@ -3046,6 +3098,19 @@
     unglow(obj);
   }
 
+  function drawFetchPongAt(x, y){
+    const r = 11;
+    ctx.beginPath();
+    ctx.ellipse(x, y+r+2, r, 4, 0, 0, Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.18)'; ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fillStyle = '#7ad4ff';
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.font='16px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('⚽', x, y);
+  }
   function drawRaceBall(obj){
     glowIf(obj,'#eee');
     const cx=obj.x+obj.w/2, cy=obj.y+obj.h/2;
