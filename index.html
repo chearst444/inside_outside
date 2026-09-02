@@ -2729,9 +2729,6 @@
     if(player.scene==='outside'){
       drawYardPretty();
       drawPet('yard_house', HOUSE_POS.x, HOUSE_POS.y, 6.2);
-      if(Date.now()-GAME_START_TIME < BONE_LIFETIME_MS){
-        drawPet('yard_bone', BONE_POS.x, BONE_POS.y, 5);
-      }
       if(equipped.toy && shopItemById[equipped.toy]){
         const pos = getToyRenderPos();
         drawSpriteAt(shopItemById[equipped.toy], pos.x, pos.y, 2.2);
