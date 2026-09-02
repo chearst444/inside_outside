@@ -1815,8 +1815,7 @@
     // clicking the food spot, or clicking the dog itself to throw a ball.
     const nearTreat = placedTreats.find(t=>t.scene===dog.scene);
     if(nearTreat && Math.random()<0.3){
-      dog.state='goEat'; dog.tx=nearTreat.x+nearTreat.w/2; dog.ty=nearTreat.y+nearTreat.h/2; dog.stateUntil=now+9000;
-      dog.eatingTreatUid = nearTreat.uid;
+      sendDogToTreat(nearTreat);
       return;
     }
     if(dog.scene==='outside' && equipped.toy && Math.random()<0.18){
@@ -2083,6 +2082,7 @@
 
   // ---------- Treat bag: buy a treat, then place it for Max ----------
   const TREAT_PLACE_SCALE = 1.8;
+  const TREAT_LIFETIME_MS = 60*1000; // an uneaten treat disappears a minute after it's set down
   // Tapping a treat in the Pet Shop's "Your Treat Bag" list arms it for
   // placement and closes the shop so the very next tap in the yard or
   // kitchen sets it down (see handleWorldTap / tryPlaceTreatAt below).
@@ -2116,13 +2116,29 @@
     const it = shopItemById[itemId];
     const w = (it && it.sw ? it.sw : 16)*TREAT_PLACE_SCALE;
     const h = (it && it.sh ? it.sh : 16)*TREAT_PLACE_SCALE;
-    placedTreats.push({
+    const treat = {
       type:'placedTreat', uid:'treat'+(placedTreatSeq++), itemId, scene,
       x: px-w/2, y: py-h/2, w, h, interactRadius:60,
-    });
+      expiresAt: Date.now()+TREAT_LIFETIME_MS,
+    };
+    placedTreats.push(treat);
     placingTreatItemId = null;
     showToast(`🍖 ${it ? it.name : 'Treat'} set down. Walk Max over (or tap it) to have him eat!`);
     updateCoinChip();
+    sendDogToTreat(treat); // if Max is already in the room, he heads straight for it
+  }
+  // Removes any placed treat that's sat out too long without being eaten.
+  // Leaves alone whichever one Max is currently on his way to/eating, so he
+  // doesn't lose his target mid-stride.
+  function updateTreats(){
+    if(placedTreats.length===0) return;
+    const now = Date.now();
+    for(let i=placedTreats.length-1; i>=0; i--){
+      const t = placedTreats[i];
+      if(now>=t.expiresAt && dog.eatingTreatUid!==t.uid){
+        placedTreats.splice(i,1);
+      }
+    }
   }
   function drawPlacedTreat(obj){
     const it = shopItemById[obj.itemId];
@@ -2133,14 +2149,23 @@
   }
   // Sends Max straight to a specific treat sitting out in the world instead
   // of waiting for him to notice it on his own (see pickDogState above).
+  // Silent no-op if he's not free to go right now ,  used right after a
+  // treat is placed, when there's no explicit player action to react to.
+  function sendDogToTreat(t){
+    if(dog.scene!==t.scene) return;
+    if(dog.state==='eating' || dog.state==='inBed' || dog.state==='goBed') return;
+    dog.state='goEat'; dog.tx=t.x+t.w/2; dog.ty=t.y+t.h/2; dog.stateUntil=Date.now()+9000;
+    dog.eatingTreatUid = t.uid;
+  }
+  // Same, but for a direct tap on the treat ,  tells the player why it
+  // didn't work instead of failing silently.
   function callDogToEatTreat(t){
     if(dog.scene!==t.scene){
       showToast('Max needs to be in this room first!');
       return;
     }
     if(dog.state==='eating'){ showToast('Max is already eating!'); return; }
-    dog.state='goEat'; dog.tx=t.x+t.w/2; dog.ty=t.y+t.h/2; dog.stateUntil=Date.now()+9000;
-    dog.eatingTreatUid = t.uid;
+    sendDogToTreat(t);
   }
   function startBowlDrain(){
     bowlLevel = 3;
@@ -3370,6 +3395,7 @@
     updateDogFollow();
     updateBowlDrain();
     updateDog();
+    updateTreats();
     updateButterflies();
     updateInteractables();
     if(player.pendingFind && Date.now() >= player.digUntil){
