@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#111">
 <title>Inside Outside</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
 <style>
   :root{
     color-scheme: dark;
@@ -14,7 +17,7 @@
   html,body{
     margin:0; padding:0; height:100%;
     background:#111; color:#eee;
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-family: Nunito, 'Segoe UI', system-ui, sans-serif;
     overflow:hidden;
     user-select:none;
     touch-action:none;
@@ -41,7 +44,7 @@
     pointer-events:none;
     font-size:14px;
   }
-  #roomName{ font-weight:700; font-size:18px; text-shadow:0 2px 4px #000; }
+  #roomName{ font-family: Fredoka, Nunito, sans-serif; font-weight:700; font-size:18px; text-shadow:0 2px 4px #000; }
   #invBar{ display:flex; gap:6px; align-items:center; }
   .chip{
     background:rgba(255,255,255,.12);
@@ -71,14 +74,6 @@
     padding:1px 7px; margin-right:6px; font-weight:700;
   }
 
-  /* mini map — outside only, marks the guaranteed-coin dig spots */
-  #miniMap{
-    position:absolute; top:44px; right:14px;
-    width:130px; height:90px; /* override the generic canvas{width:100%} rule below */
-    border-radius:8px; border:1px solid rgba(255,255,255,.25);
-    box-shadow:0 4px 14px rgba(0,0,0,.5);
-    pointer-events:none; display:none;
-  }
 
   #toasts{
     position:absolute; top:56px; right:14px;
@@ -121,7 +116,7 @@
     touch-action: pan-y;
     box-shadow:0 20px 60px rgba(0,0,0,.6);
   }
-  .panel h2{ margin:0 0 4px; font-size:20px; }
+  .panel h2, .panel h1{ margin:0 0 4px; font-size:20px; font-family: Fredoka, Nunito, sans-serif; }
   .panel .sub{ color:#9aa0ac; font-size:13px; margin-bottom:14px; }
   .closeBtn{
     float:right; cursor:pointer; background:rgba(255,255,255,.08);
@@ -399,6 +394,7 @@
   }
 </style>
 
+
 <style>
         #sq-open {
             position: fixed;
@@ -410,6 +406,7 @@
             justify-content: center;
             box-sizing: border-box;
             padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            font-family: Fredoka, Nunito, sans-serif;
         }
         #sq-open.is-off { display: none !important; }
         #sq-open .sq-stage {
@@ -425,19 +422,33 @@
             max-height: 100dvh;
             object-fit: contain;
         }
-        #sq-open.pixel .sq-art {
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-        }
-        #sq-open .sq-play {
+        #sq-open .sq-howto {
             position: absolute;
             left: 50%;
-            bottom: 8%;
+            bottom: 3%;
             transform: translateX(-50%);
+            width: min(92%, 540px);
+            box-sizing: border-box;
+            background: #fff6eb;
+            color: #3b2a1a;
+            border: 4px solid #8b4e1f;
+            padding: 12px 16px 8px;
+            text-align: center;
+        }
+        #sq-open .sq-howto p {
+            margin: 0 0 6px;
+            font-size: clamp(15px, 3.4vw, 20px);
+            line-height: 1.35;
+            font-family: Fredoka, Nunito, sans-serif;
+            font-weight: 600;
+        }
+        #sq-open .sq-play {
             background: none;
             border: 0;
-            padding: 12px 16px;
+            padding: 8px 10px;
             cursor: pointer;
+            margin: 2px auto 0;
+            display: inline-block;
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
         }
@@ -452,67 +463,14 @@
         }
         @media (max-width: 640px) {
             #sq-open .sq-play img { width: 184px; height: 58px; }
+            #sq-open .sq-howto { padding: 8px 10px 6px; width: min(96%, 540px); }
+            #sq-open .sq-howto p { font-size: clamp(13px, 3.6vw, 16px); margin-bottom: 4px; }
         }
-
-        #sq-open .sq-continue {
-            position: absolute;
-            left: 50%;
-            bottom: 8%;
-            transform: translateX(-50%);
-            background: #fff6eb;
-            color: #3b2a1a;
-            border: 4px solid #8b4e1f;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: clamp(16px, 4vw, 22px);
-            font-weight: 700;
-            letter-spacing: 0.03em;
-            padding: 12px 22px;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
-        }
-        #sq-open .sq-howto {
-            display: none;
-            width: min(100%, 560px);
-            max-height: 92dvh;
-            overflow: auto;
-            box-sizing: border-box;
-            padding: 8px;
-        }
-        #sq-open.is-howto .sq-stage { display: none; }
-        #sq-open.is-howto .sq-howto { display: block; }
-        #sq-open .sq-howto-card {
-            background: #fff6eb;
-            color: #3b2a1a;
-            border: 4px solid #8b4e1f;
-            padding: 22px 20px 16px;
-            text-align: center;
-            box-sizing: border-box;
-        }
-        #sq-open .sq-howto-card h2 {
-            margin: 0 0 12px;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: clamp(22px, 5vw, 30px);
-            line-height: 1.2;
-        }
-        #sq-open .sq-howto-card p {
-            margin: 0 0 10px;
-            font-size: clamp(15px, 3.6vw, 18px);
-            line-height: 1.45;
-            text-align: left;
-        }
-        #sq-open.is-howto .sq-play {
-            position: static;
-            transform: none;
-            margin: 10px auto 0;
-            display: inline-block;
-        }
-
-        #sq-open .sq-studio {
-            position: absolute;
+        .sq-studio {
+            position: fixed;
             top: 10px;
             left: 10px;
-            z-index: 5;
+            z-index: 100000;
             display: flex;
             align-items: center;
             gap: 6px;
@@ -521,26 +479,25 @@
             background: rgba(26, 18, 12, 0.78);
             border: 2px solid #e8a838;
             padding: 4px 8px 4px 4px;
-            font-family: Georgia, "Times New Roman", serif;
+            font-family: Fredoka, Nunito, sans-serif;
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 0.02em;
             line-height: 1;
             -webkit-tap-highlight-color: transparent;
         }
-        #sq-open .sq-studio svg {
+        .sq-studio svg {
             display: block;
             width: 22px;
             height: 22px;
             flex: none;
         }
-
-
 </style>
+
 </head>
 <body>
-<div id="sq-open" class="pixel" role="dialog" aria-modal="true" aria-label="Inside Outside">
-    <a class="sq-studio" href="https://snackquests.com" id="sq-studio">
+<div id="sq-open" role="dialog" aria-modal="true" aria-label="Inside Outside">
+  <a class="sq-studio" href="https://snackquests.com" id="sq-studio">
     <svg viewBox="0 0 64 64" width="22" height="22" aria-hidden="true" focusable="false">
       <ellipse cx="32" cy="38" rx="20" ry="14" fill="#E8A838"/>
       <ellipse cx="32" cy="34" rx="18" ry="11" fill="#F4B942"/>
@@ -552,19 +509,15 @@
   </a>
 <div class="sq-stage" id="sq-art-screen">
     <img class="sq-art" src="assets/opening.jpg" alt="Inside Outside">
-    <button type="button" class="sq-continue" id="sq-continue">Tap to continue</button>
-  </div>
-  <div class="sq-howto" id="sq-howto">
-    <div class="sq-howto-card">
-      <h2>How to play</h2>
-      <p>Dig up treasures. Pet Max. Craft inside the house.</p>
+    <div class="sq-howto" id="sq-howto">
+      <p>Dig for treasures. Tap the mound.</p>
+      <p>Use gold coins to buy things for Max in the pet shop.</p>
       <button type="button" class="sq-play" id="sq-play" aria-label="Play">
         <img src="assets/btn_play.png" alt="PLAY" width="92" height="29">
       </button>
     </div>
   </div>
 </div>
-
 <div id="gameWrap">
   <canvas id="game" width="900" height="600"></canvas>
 
@@ -579,7 +532,6 @@
 
   <div id="interactPrompt"><kbd>E</kbd><span id="promptText"></span></div>
 
-  <canvas id="miniMap" width="130" height="90"></canvas>
 
   <div id="dogMenu" class="hidden">
     <button id="dogMenuPet">🐕 Pet</button>
@@ -599,7 +551,7 @@
   <div id="mealOverlay"><div id="mealText">You sit down and enjoy a delicious meal...</div></div>
 
   <!-- Start screen -->
-  <div class="overlay" id="startOverlay">
+  <div class="overlay hidden" id="startOverlay">
     <div class="panel" id="startPanel">
       <h1>🏡 Inside/Outside</h1>
       <p>Dig up treasures and gold coins, craft them at your <b>Restoration Workbench</b>,
@@ -715,6 +667,19 @@
   const CANVAS_W = 900, CANVAS_H = 600, WALL = 24;
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
+  const BOY_KEYS = [
+    'walk_0','walk_1','walk_2','walk_3','idle_0','idle_1','idle_2','fall_0',
+    'blow_1','blow_2','blow_3','blow_4','blow_pop',
+    'walk_0_r','walk_1_r','walk_2_r','walk_3_r','idle_0_r','idle_1_r','idle_2_r','fall_0_r',
+    'blow_1_r','blow_2_r','blow_3_r','blow_4_r'
+  ];
+  const boyImgs = {};
+  for(const k of BOY_KEYS){
+    const im = new Image();
+    im.src = 'assets/player/' + k + '.png';
+    boyImgs[k] = im;
+  }
+
   ctx.imageSmoothingEnabled = false; // keep the dog's pixel-art sprites crisp
 
   // ---------- Dog sprites ----------
@@ -901,7 +866,8 @@
       name: 'Outside',
       floor: '#6fae3e',
       wall: '#5b4632',
-      doors: [ {side:'east', yRange:[250,350], target:'kitchen', spawn:{x:70,y:300}} ],
+      rect: {x:0, y:0, w:900, h:600},
+      doors: [ {side:'east', yRange:[250,350], target:'kitchen', spawn:{x:175,y:300}} ],
       decor: [
         {type:'tree', x:695,y:50, w:110,h:110},
         {type:'tree', x:75, y:430,w:110,h:110},
@@ -922,39 +888,45 @@
       name: 'Kitchen',
       floor: '#e7d3ab',
       wall: '#8a6a45',
+      rect: {x:110, y:70, w:680, h:460},
       doors: [
         {side:'west', yRange:[250,350], target:'outside', spawn:{x:830,y:300}},
-        {side:'east', yRange:[250,350], target:'bedroom', spawn:{x:70,y:300}},
+        {side:'east', yRange:[250,350], target:'bedroom', spawn:{x:230,y:300}},
       ],
       decor: [
-        {x:60,y:420,w:150,h:110,color:'#c0c0c8',label:'🧊',labelSize:40,round:10}, // fridge
-        {x:250,y:440,w:170,h:90,color:'#9a9a9a',label:'🍳',labelSize:34,round:10}, // stove
-        {x:460,y:450,w:200,h:80,color:'#b98a52',label:'🍽️',labelSize:30,round:10}, // counter
+        {x:130,y:390,w:140,h:100,color:'#c0c0c8',label:'🧊',labelSize:40,round:10},
+        {x:285,y:408,w:155,h:82,color:'#9a9a9a',label:'🍳',labelSize:34,round:10},
+        {x:455,y:412,w:185,h:74,color:'#b98a52',label:'🍽️',labelSize:30,round:10},
       ],
       objects: [
-        calendarObj(410,26),
-        tableObj(360,190),
+        calendarObj(400,86),
+        tableObj(325,215),
       ]
     },
     bedroom: {
       name: 'Bedroom',
       floor: '#cfd8e8',
       wall: '#5a5f73',
+      rect: {x:170, y:100, w:560, h:400},
       doors: [
-        {side:'west', yRange:[250,350], target:'kitchen', spawn:{x:830,y:300}},
+        {side:'west', yRange:[250,350], target:'kitchen', spawn:{x:735,y:300}},
       ],
       decor: [],
       objects: [
-        bedObj(40,40),
-        toyObj(300,150,'🧸','#ff9f7a','toy1'),
-        raceBallObj(390,230),
-        toyObj(270,320,'🚗','#ffe27a','toy3'),
-        puzzleToyObj(430,360),
-        toyObj(340,440,'🪀','#ff7ac6','toy5'),
-        toolBenchObj(680,380),
+        bedObj(190,118,260,170),
+        toyObj(455,210,'🧸','#ff9f7a','toy1'),
+        raceBallObj(430,300),
+        toyObj(470,330,'🚗','#ffe27a','toy3'),
+        puzzleToyObj(520,305),
+        toyObj(455,385,'🪀','#ff7ac6','toy5'),
+        toolBenchObj(545,345),
       ]
     }
   };
+  function sceneRect(name){
+    const s = SCENES[name];
+    return (s && s.rect) ? s.rect : {x:0,y:0,w:CANVAS_W,h:CANVAS_H};
+  }
 
   function digSpot(x,y,id){
     return {id,type:'dig', x,y, w:56,h:44, interactRadius:60,
@@ -982,8 +954,9 @@
     return {id:'toolbench', type:'toolbench', x,y, w:160,h:130, interactRadius:95,
       promptLabel:'Use the Restoration Workbench'};
   }
-  function bedObj(x,y){
-    return {id:'bed', type:'bed', x,y, w:170,h:110, interactRadius:120,
+  function bedObj(x,y,w,h){
+    const bw = w||170, bh = h||110;
+    return {id:'bed', type:'bed', x,y, w:bw, h:bh, interactRadius:Math.max(120, bw*0.5),
       promptLabel:'Take a Nap'};
   }
   function tableObj(x,y){
@@ -1000,7 +973,7 @@
   }
 
   // ---------- Player / state ----------
-  const player = { scene:'outside', x:120, y:300, radius:16, speed:3.2 };
+  const player = { type:'player', scene:'outside', x:120, y:300, radius:16, speed:3.2, facing:'right', animFrame:0, animAcc:0, blowUntil:0 };
 
   // The dog lives in the yard (the 'outside' scene), wandering on its own
   // between idle/sniff/sit/lie/sleep poses and walking to a new spot.
@@ -1027,11 +1000,11 @@
   // slot — null means "show the free default" (bowl/house) or "nothing
   // placed there" (food/toy). Swapped via the dropdowns in the Pet Shop.
   const equipped = { bowl:null, house:null, food:null, toy:null, collar:null, bed:null };
-  const KITCHEN_BOWL_POS = {x:700, y:150};
+  const KITCHEN_BOWL_POS = {x:680, y:155};
   const HOUSE_POS = {x:55,  y:220};
   const BONE_POS  = {x:165, y:275};
   const TOY_SPOT  = {x:600, y:350}; // the dog walks here to play/fetch, if equipped.toy is set
-  const DOG_BED_POS = {x:560, y:70}; // bedroom — placed as soon as you buy your first bed
+  const DOG_BED_POS = {x:500, y:125}; // bedroom, placed as soon as you buy your first bed
   const DOG_BED_SCALE = 1.8;
   const DEFAULT_BOWL  = {sheet:'bowls',  sx:0,sy:0, sw:16,sh:16, name:'Green Food Bowl'};
   const DEFAULT_HOUSE = {sheet:'houses', sx:0,sy:0, sw:96,sh:96, name:'Brown Doghouse'};
@@ -1184,7 +1157,12 @@
   document.getElementById('raceCloseBtn').addEventListener('click', closeAllModals);
   document.getElementById('petShopCloseBtn').addEventListener('click', closeAllModals);
   document.getElementById('puzzleCloseBtn').addEventListener('click', closeAllModals);
-  modalOpen = true; // start screen counts as a modal until dismissed
+  modalOpen = true; // opening overlay until Play
+  document.addEventListener('sq-play', ()=>{
+    const so = document.getElementById('startOverlay');
+    if(so) so.classList.add('hidden');
+    modalOpen = false;
+  });
 
   function closeAllModals(){
     document.getElementById('calendarOverlay').classList.add('hidden');
@@ -1215,7 +1193,8 @@
     // in the same scene. Otherwise he stays behind in whatever room he's in.
     if(dog.scene===player.scene){
       dog.scene = target;
-      dog.x = Math.min(Math.max(spawn.x + (spawn.x < CANVAS_W/2 ? 44 : -44), 60), CANVAS_W-60);
+      const rm = sceneRect(target);
+      dog.x = Math.min(Math.max(spawn.x + (spawn.x < rm.x+rm.w/2 ? 44 : -44), rm.x+60), rm.x+rm.w-60);
       dog.y = spawn.y;
       dog.tx = dog.x; dog.ty = dog.y;
       dog.state = 'idle'; dog.stateUntil = Date.now()+900;
@@ -1241,24 +1220,29 @@
     let ny = player.y + dy*player.speed;
 
     const scene = SCENES[player.scene];
+    const room = sceneRect(player.scene);
     const r = player.radius;
-    let minX = WALL+r, maxX = CANVAS_W-WALL-r;
-    let minY = WALL+r, maxY = CANVAS_H-WALL-r;
+    let minX = room.x+WALL+r, maxX = room.x+room.w-WALL-r;
+    let minY = room.y+WALL+r, maxY = room.y+room.h-WALL-r;
 
     for(const door of scene.doors){
       const inYRange = ny > door.yRange[0]-r && ny < door.yRange[1]+r;
-      if(door.side==='west' && inYRange) minX = 6;
-      if(door.side==='east' && inYRange) maxX = CANVAS_W-6;
+      if(door.side==='west' && inYRange) minX = room.x+6;
+      if(door.side==='east' && inYRange) maxX = room.x+room.w-6;
     }
 
     nx = Math.min(Math.max(nx,minX), maxX);
     ny = Math.min(Math.max(ny,minY), maxY);
     player.x = nx; player.y = ny;
+    if(dx > 0.2) player.facing = 'right';
+    else if(dx < -0.2) player.facing = 'left';
+    if(dx||dy) player.animAcc += 0.18;
+    player.animFrame = Math.floor(player.animAcc);
 
     for(const door of scene.doors){
       const inYRange = player.y > door.yRange[0] && player.y < door.yRange[1];
-      if(door.side==='west' && inYRange && player.x<=8){ switchScene(door.target, door.spawn); return; }
-      if(door.side==='east' && inYRange && player.x>=CANVAS_W-8){ switchScene(door.target, door.spawn); return; }
+      if(door.side==='west' && inYRange && player.x<=room.x+8){ switchScene(door.target, door.spawn); return; }
+      if(door.side==='east' && inYRange && player.x>=room.x+room.w-8){ switchScene(door.target, door.spawn); return; }
     }
   }
 
@@ -1304,8 +1288,9 @@
     const r = Math.random();
     if(r<0.4){
       dog.state='walk';
-      dog.tx = 90+Math.random()*(CANVAS_W-180);
-      dog.ty = 220+Math.random()*(CANVAS_H-300);
+      const rm = sceneRect(dog.scene);
+      dog.tx = rm.x+90+Math.random()*Math.max(40, rm.w-180);
+      dog.ty = rm.y+80+Math.random()*Math.max(40, rm.h-160);
       dog.stateUntil = now+8000; // safety timeout if it never quite reaches tx/ty
     } else if(r<0.6){ dog.state='sniff'; dog.stateUntil=now+2500+Math.random()*2000; }
     else if(r<0.8){ dog.state='sit';   dog.stateUntil=now+2500+Math.random()*2500; }
@@ -1320,8 +1305,9 @@
     if(!it) return;
     const angle = Math.random()*Math.PI*2;
     const dist = 120+Math.random()*170;
-    const tx = Math.min(Math.max(dog.x+Math.cos(angle)*dist, 60), CANVAS_W-60);
-    const ty = Math.min(Math.max(dog.y+Math.sin(angle)*dist, 200), CANVAS_H-60);
+    const rm = sceneRect(dog.scene);
+    const tx = Math.min(Math.max(dog.x+Math.cos(angle)*dist, rm.x+60), rm.x+rm.w-60);
+    const ty = Math.min(Math.max(dog.y+Math.sin(angle)*dist, rm.y+80), rm.y+rm.h-60);
     ballThrowPos = {x:tx, y:ty};
     dog.isFetch = true;
     dog.throwTime = Date.now();
@@ -1565,6 +1551,7 @@
     else if(obj.type==='foodspot') callDogToEat();
     else if(obj.type==='puzzle') openPuzzle();
     else if(obj.type==='dogbedspot') callDogToBed();
+    else if(obj.type==='player') startBlow();
   }
 
   // ---------- Click / tap directly on something ----------
@@ -1573,6 +1560,9 @@
   // walk-up-and-press-E flow above still works the same as always.
   function objectContainsPoint(obj, px, py){
     if(obj.type==='dog') return Math.hypot(px-obj.x, py-obj.y) < obj.size*0.6;
+    if(obj.type==='player'){
+      return Math.abs(px-player.x) <= 22 && py <= player.y+player.radius+2 && py >= player.y-40;
+    }
     return px>=obj.x && px<=obj.x+obj.w && py>=obj.y && py<=obj.y+obj.h;
   }
   function findClickTarget(px, py){
@@ -1587,6 +1577,7 @@
     if(fs && objectContainsPoint(fs, px, py)) return fs;
     const bs = getBedSpotObj();
     if(bs && objectContainsPoint(bs, px, py)) return bs;
+    if(objectContainsPoint(player, px, py)) return player;
     return null;
   }
   // Converts a page-space (clientX/clientY) point to the canvas's internal
@@ -1607,7 +1598,7 @@
 
   function handleDig(spot){
     if(spot.dug && Date.now()<spot.cooldownUntil){
-      showToast('Nothing here yet — try again later.');
+      showToast('Nothing here yet. Try again later.');
       return;
     }
     const t = spot.guaranteedCoin ? treasureById['coin'] : TREASURES[Math.floor(Math.random()*TREASURES.length)];
@@ -1894,7 +1885,7 @@
   // `equipped` immediately; drawScene reads it fresh every frame.
   const YARD_SLOTS = [
     {select:'equipBowl',  slot:'bowl',   categories:['Food Bowls'], defaultLabel:'Default — Green Food Bowl'},
-    {select:'equipHouse', slot:'house',  categories:['Doghouses'],  defaultLabel:'Default — Brown Doghouse'},
+    {select:'equipHouse', slot:'house',  categories:['Doghouses'],  defaultLabel:'Default: Brown Doghouse'},
     {select:'equipFood',  slot:'food',   categories:['Dog Food','Meat Treats'], defaultLabel:'— None (empty spot) —'},
     {select:'equipToy',   slot:'toy',    categories:['Balls','Chew Bones','Rope Toys'], defaultLabel:'— None (empty spot) —'},
     {select:'equipCollar',slot:'collar', categories:['Collars'], defaultLabel:'— None —'},
@@ -1929,7 +1920,7 @@
     if(petInventory.includes(item.id)) return;
     const coinIdx = inventory.indexOf('coin');
     if(coinIdx===-1){
-      showToast('Not enough gold coins — dig some up outside first!');
+      showToast('Not enough gold coins. Dig some up outside first!');
       return;
     }
     inventory.splice(coinIdx,1);
@@ -2204,20 +2195,23 @@
 
   function drawScene(){
     const scene = SCENES[player.scene];
+    const room = sceneRect(player.scene);
     ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
+    ctx.fillStyle = '#14110e';
+    ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
 
     // floor
     ctx.fillStyle = scene.floor;
-    ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+    ctx.fillRect(room.x, room.y, room.w, room.h);
 
     // walls
     ctx.strokeStyle = scene.wall;
     ctx.lineWidth = WALL*2;
-    ctx.strokeRect(0,0,CANVAS_W,CANVAS_H);
+    ctx.strokeRect(room.x, room.y, room.w, room.h);
     for(const door of scene.doors){
       ctx.fillStyle = '#20222b';
-      if(door.side==='west') ctx.fillRect(0, door.yRange[0], WALL+6, door.yRange[1]-door.yRange[0]);
-      if(door.side==='east') ctx.fillRect(CANVAS_W-WALL-6, door.yRange[0], WALL+6, door.yRange[1]-door.yRange[0]);
+      if(door.side==='west') ctx.fillRect(room.x, door.yRange[0], WALL+6, door.yRange[1]-door.yRange[0]);
+      if(door.side==='east') ctx.fillRect(room.x+room.w-WALL-6, door.yRange[0], WALL+6, door.yRange[1]-door.yRange[0]);
     }
 
     // decor (background flavor, non-interactive)
@@ -2398,7 +2392,7 @@
     ctx.fillStyle = '#7d6bb0';
     drawRoundedRect(obj.x, obj.y, obj.w, obj.h, 14);
     ctx.fill();
-    ctx.font = '44px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font = Math.round(obj.h*0.42)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('🛏️', obj.x+obj.w/2, obj.y+obj.h/2);
     unglow(obj);
   }
@@ -2501,65 +2495,76 @@
     unglow(dog);
   }
 
+  function startBlow(){
+    if(Date.now() < player.blowUntil) return;
+    player.blowUntil = Date.now()+820;
+  }
+
   function drawPlayer(){
-    ctx.beginPath();
-    ctx.ellipse(player.x, player.y+player.radius-2, player.radius, player.radius/2.5, 0,0,Math.PI*2);
-    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(player.x, player.y, player.radius, 0, Math.PI*2);
-    ctx.fillStyle = '#ffe0b2';
-    ctx.fill();
-    ctx.strokeStyle='#c98a3f'; ctx.lineWidth=2; ctx.stroke();
-
-    ctx.font='22px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(napping ? '😴' : '🧒', player.x, player.y+1);
+    const now = Date.now();
+    const right = player.facing === 'right';
+    const idle = right ? ['idle_0','idle_1','idle_2'] : ['idle_0_r','idle_1_r','idle_2_r'];
+    const walk = right ? ['walk_0','walk_1','walk_2','walk_3'] : ['walk_0_r','walk_1_r','walk_2_r','walk_3_r'];
+    const blow = right
+      ? ['blow_1','blow_2','blow_3','blow_4','blow_pop']
+      : ['blow_1_r','blow_2_r','blow_3_r','blow_4_r','blow_pop'];
+    let key;
+    const blowing = now < player.blowUntil;
+    if(blowing){
+      const elapsed = 820 - (player.blowUntil - now);
+      if(elapsed < 140) key = blow[0];
+      else if(elapsed < 280) key = blow[1];
+      else if(elapsed < 430) key = blow[2];
+      else if(elapsed < 640) key = blow[3];
+      else key = blow[4];
+    } else if(keys['arrowleft']||keys['a']||keys['arrowright']||keys['d']||keys['arrowup']||keys['w']||keys['arrowdown']||keys['s']||touchVec.dx||touchVec.dy){
+      key = walk[player.animFrame % walk.length];
+    } else {
+      key = idle[Math.floor(now/380) % idle.length];
+    }
+    const img = boyImgs[key];
+    const feetY = player.y + player.radius;
+    const centerX = player.x;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    if(img && img.complete && img.naturalWidth){
+      const targetHeight = 52;
+      const scale = targetHeight / img.naturalHeight;
+      const drawW = img.naturalWidth * scale;
+      const drawH = targetHeight;
+      ctx.drawImage(img, centerX - drawW/2, feetY - drawH, drawW, drawH);
+    }
+    if(blowing){
+      const elapsed = 820 - (player.blowUntil - now);
+      if(elapsed < 280){
+        const t = elapsed / 280;
+        const rad = 5 + t * 9;
+        const mouthX = centerX + (right ? 11 : -11);
+        const mouthY = feetY - 38;
+        ctx.fillStyle = '#ff5a7a';
+        ctx.beginPath();
+        ctx.arc(mouthX, mouthY, rad, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.beginPath();
+        ctx.arc(mouthX + (right ? -rad*0.28 : rad*0.28), mouthY - rad*0.32, rad*0.28, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = '#c2185b';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(mouthX, mouthY, rad, 0, Math.PI*2);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
 
   // ---------- Loop ----------
-  // A small always-current overview of the yard: every dig mound as a dot,
-  // with a gold dot for the guaranteed-coin spots — offset to the side so
-  // it doesn't sit right on top of the mound dot underneath it — plus your
-  // own position. Only makes sense to show while you're actually outside.
-  const miniMap = document.getElementById('miniMap');
-  const miniMapCtx = miniMap.getContext('2d');
-  function drawMiniMap(){
-    if(player.scene!=='outside'){ miniMap.style.display = 'none'; return; }
-    miniMap.style.display = 'block';
-    const MW = miniMap.width, MH = miniMap.height;
-    const sx = MW/CANVAS_W, sy = MH/CANVAS_H;
-    miniMapCtx.clearRect(0,0,MW,MH);
-    miniMapCtx.fillStyle = 'rgba(15,26,10,.88)';
-    miniMapCtx.fillRect(0,0,MW,MH);
-
-    for(const obj of SCENES.outside.objects){
-      if(obj.type!=='dig') continue;
-      const mx = (obj.x+obj.w/2)*sx, my = (obj.y+obj.h/2)*sy;
-      miniMapCtx.beginPath();
-      miniMapCtx.arc(mx, my, 2.2, 0, Math.PI*2);
-      miniMapCtx.fillStyle = '#8f6238';
-      miniMapCtx.fill();
-      if(obj.guaranteedCoin){
-        // offset so the coin marker doesn't land right on top of the mound
-        miniMapCtx.beginPath();
-        miniMapCtx.arc(mx+4, my-4, 2, 0, Math.PI*2);
-        miniMapCtx.fillStyle = '#ffd54a';
-        miniMapCtx.fill();
-      }
-    }
-
-    miniMapCtx.beginPath();
-    miniMapCtx.arc(player.x*sx, player.y*sy, 2.6, 0, Math.PI*2);
-    miniMapCtx.fillStyle = '#7ad4ff';
-    miniMapCtx.fill();
-  }
-
   function loop(){
     updatePlayer();
     updateDog();
     updateInteractables();
     drawScene();
-    drawMiniMap();
     requestAnimationFrame(loop);
   }
   document.getElementById('roomName').textContent = SCENES[player.scene].name;
@@ -2570,33 +2575,19 @@
 <script>
 (function () {
   var overlay = document.getElementById('sq-open');
-  var cont = document.getElementById('sq-continue');
   var btn = document.getElementById('sq-play');
-  var stage = overlay && overlay.querySelector('.sq-stage');
   if (!overlay) return;
-  function goHowto(e) {
-    if (overlay.classList.contains('is-howto') || overlay.classList.contains('is-off')) return;
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    overlay.classList.add('is-howto');
-  }
   function start(e) {
+    if (overlay.classList.contains('is-off')) return;
     if (e) { e.preventDefault(); e.stopPropagation(); }
     overlay.classList.add('is-off');
     overlay.setAttribute('aria-hidden', 'true');
-    if (typeof gameState !== 'undefined' && gameState === 'TITLE') {
-      gameState = 'PLAYING';
-    }
     document.dispatchEvent(new CustomEvent('sq-play'));
   }
-  if (cont) cont.addEventListener('click', goHowto);
-  if (stage) stage.addEventListener('click', goHowto);
   if (btn) btn.addEventListener('click', start);
   window.addEventListener('keydown', function (e) {
     if (overlay.classList.contains('is-off')) return;
-    if (e.code === 'Enter' || e.code === 'Space') {
-      if (overlay.classList.contains('is-howto')) start(e);
-      else goHowto(e);
-    }
+    if (e.code === 'Enter' || e.code === 'Space') start(e);
   }, true);
 })();
 </script>
